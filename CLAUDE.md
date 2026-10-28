@@ -49,7 +49,7 @@ Ett bygg- och odlingsspel inspirerat av klassiska odlings- och byggspel, gjort f
 ## Domän
 - Spelet ligger på `https://farm.chandler.se` (filen `CNAME`). Gamla adressen `dlundin-private.github.io/farm/` skickas vidare dit.
 - Sparningen hör ihop med domänen. Byt inte domän igen, då börjar alla om från noll.
-- Byar från gamla adressen flyttas med flyttsidan i `../flytt` (`https://dlundin-private.github.io/flytt/`). Den skickar hit `#flytt=…`, som tas emot av `importMove()` innan byarna läses in. Flyttade byar läggs till som nya byar. Föräldraläge och ljud tas bara över om inget finns här.
+- Byar som sparades på den gamla adressen följer inte med. Det valdes med flit att inte bygga en flytt, eftersom spelet bara hade legat där en dag.
 
 ## Spelets uppbyggnad (i `<script>`)
 - `I` – alla varor (namn, emoji, värde). `CROPS` – grödor (nivå, växttid). `R` – recept i fabriker.

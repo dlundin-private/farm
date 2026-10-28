@@ -340,37 +340,6 @@ function fresh(){
 }
 /* Flera byar. Första byn ligger kvar under KEY (så gamla sparfiler fungerar orörda), nya byar under KEY-id. */
 const BKEY='lilla-byn-byar', MAXBYAR=6;
-/* Flytt från gamla adressen dlundin-private.github.io/farm/. Flyttsidan där (repot flytt) skickar hit sparningen
-   i #flytt=… (base64url av JSON). Byarna läggs till som egna byar, så inget som redan finns här skrivs över. */
-let movedMsg='';
-(function importMove(){
-  const h=location.hash;if(!h.startsWith('#flytt='))return;
-  history.replaceState(null,'',location.pathname+location.search);
-  let d;
-  try{d=JSON.parse(decodeURIComponent(escape(atob(h.slice(7).replace(/-/g,'+').replace(/_/g,'/')))))}
-  catch(e){movedMsg='Flytten gick inte att läsa. Försök igen från flyttsidan.';return}
-  const get=k=>{try{return JSON.parse(localStorage.getItem(k)||'null')}catch(e){return null}};
-  const set=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
-  const done=get('lilla-byn-flyttat')||[];
-  if(d.id&&done.includes(d.id)){movedMsg='Byn har redan flyttat hit.';return}
-  const kf=id=>id==='a'?KEY:KEY+'-'+id;
-  let by=get(BKEY);if(!by||!Array.isArray(by.list)||!by.list.length)by={cur:'a',list:['a']};
-  const here=get(KEY),aFree=by.list.includes('a')&&(!here||!here.seen);
-  let first=null,n=0,full=0;
-  (d.byar||[]).filter(s=>s&&s.v===1&&Array.isArray(s.tiles)).forEach((s,ix)=>{
-    let id=null;
-    if(n===0&&aFree)id='a';else if(by.list.length<MAXBYAR)id=(Date.now()+ix).toString(36);
-    if(!id){full++;return}
-    set(kf(id),s);if(!by.list.includes(id))by.list.push(id);first=first||id;n++;
-  });
-  if(first)by.cur=first;
-  set(BKEY,by);
-  if(d.P&&!localStorage.getItem('lilla-byn-foralder'))set('lilla-byn-foralder',d.P);
-  if(d.A&&!localStorage.getItem('lilla-byn-ljud'))set('lilla-byn-ljud',d.A);
-  if(d.id)set('lilla-byn-flyttat',done.concat(d.id));
-  movedMsg=n?(n===1?'Din by har flyttat hit!':n+' byar har flyttat hit!')+(full?` ${full} fick inte plats, du kan ha högst ${MAXBYAR} byar.`:'')
-    :'Det fanns ingen by att flytta.';
-})();
 let BY=null;
 try{BY=JSON.parse(localStorage.getItem(BKEY)||'null')}catch(e){BY=null}
 if(!BY||!Array.isArray(BY.list)||!BY.list.length)BY={cur:'a',list:['a']};
@@ -698,7 +667,7 @@ function tileView(i){
   else{const b=B[t.k];label=b.n;
     if(b.t==='field'){
       if(t.job){cls+=' soil';
-        if(T<t.job.end){e='🌱';bar=pct(t.job);label=nm(t.job.item)+' växer';if(t.job.w)lbadge='💧'}
+        if(T<t.job.end){e='🌱';badge=em(t.job.item);bar=pct(t.job);label=nm(t.job.item)+' växer';if(t.job.w)lbadge='💧'}
         else{e=em(t.job.item);cls+=' ready';label=nm(t.job.item)+' redo att skördas'}}
       else if(t.raw){cls+=' raw';badge='⛏️';label='Åker som behöver plöjas'}
       else{cls+=' soil';label='Plöjd åker, redo att så'}}
@@ -990,10 +959,7 @@ applyClock();process();
 setInterval(()=>{applyClock();process();tickParent();render()},1000);
 setInterval(save,5000);
 render();renderLock();
-if(movedMsg)openSheet(()=>`<div class="party"><div class="burst">🚚</div><h2>Flytten är klar</h2><p>${esc(movedMsg)}</p>
-  ${BY.list.length>1?`<p>Alla byar finns under 🏘️ Mina byar. Tryck på byns namnskylt för att hitta dit.</p>`:''}
-  <button class="btn wide" data-act="close">Toppen!</button></div>`);
-else if(!S.seen)openSheet(welcomeHTML);
+if(!S.seen)openSheet(welcomeHTML);
 else if(S.news!==4){S.news=4;save();openSheet(newsHTML)}
 /* Offline: service workern sparar spelet i cachen. Be också webbläsaren att inte rensa sparningen. */
 if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js').catch(()=>{});
