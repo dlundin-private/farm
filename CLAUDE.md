@@ -1,6 +1,6 @@
 # Lilla Byn
 
-Ett bygg- och odlingsspel i stil med Township, gjort för barn (ungefär 6–13 år). All text i spelet är på svenska.
+Ett bygg- och odlingsspel inspirerat av klassiska odlings- och byggspel, gjort för barn (ungefär 6–13 år). All text i spelet är på svenska.
 
 ## Grundprinciper (får inte brytas)
 - Inga köp, ingen premiumvaluta, inga reklamer och inga väntetider man kan betala sig förbi. Allt tjänas genom att spela.
