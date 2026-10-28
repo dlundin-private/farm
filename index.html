@@ -162,6 +162,27 @@ input.name{width:100%;font:inherit;font-size:20px;font-weight:700;border:3px sol
 .tile.raw{background:var(--soil);background-image:radial-gradient(circle at 25% 30%,var(--soil-line) 0 3px,transparent 4px),radial-gradient(circle at 70% 60%,var(--soil-line) 0 4px,transparent 5px),radial-gradient(circle at 40% 80%,var(--soil-line) 0 2px,transparent 3px)}
 .badge.l{right:auto;left:-5px}
 .done{color:var(--leaf);font-weight:800;white-space:nowrap}
+[hidden]{display:none!important}
+
+/* Föräldraläge */
+.pill.timer.low{background:var(--sun);color:#3A2A00}
+.lock{position:fixed;inset:0;z-index:50;background:var(--sky);overflow:auto;display:flex;justify-content:center;
+  padding:calc(env(safe-area-inset-top,0px) + 16px) 16px calc(env(safe-area-inset-bottom,0px) + 16px)}
+.lock .card{background:var(--panel);color:var(--panel-ink);border-radius:26px;padding:18px 16px;max-width:520px;width:100%;
+  margin:auto 0;box-shadow:0 6px 0 var(--edge);animation:up .22s ease-out}
+.lock h2{margin:0 0 2px;font-size:30px;line-height:1.15}
+.lock p{margin:4px 0 12px;color:var(--muted);font-size:16px;line-height:1.35}
+.lbl{display:block;font-weight:800;font-size:17px;margin:6px 0 4px}
+.err{color:var(--bad)!important;font-weight:700;margin:-4px 0 12px!important}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.chips button{border:0;border-radius:999px;padding:6px 14px;background:var(--card);font-weight:800;font-size:16px}
+.chips button.on{background:var(--leaf);color:#fff}
+.row.pick{cursor:pointer}
+.tick{width:32px;height:32px;border-radius:10px;border:3px solid var(--edge);display:grid;place-items:center;font-weight:800;flex:none}
+.pick.on .tick{background:var(--leaf);border-color:var(--leaf);color:#fff}
+.addrow{display:flex;gap:8px;margin-bottom:12px}
+.addrow input{margin:0;flex:1;min-width:0}
+input.code{letter-spacing:.3em}
 </style>
 </head>
 <body>
@@ -171,6 +192,8 @@ input.name{width:100%;font:inherit;font-size:20px;font-weight:700;border:3px sol
     <div class="hud">
       <div class="pill level" aria-label="Nivå"><span>⭐</span><b id="lvl">1</b><span class="xpbar"><i id="xp"></i></span></div>
       <div class="pill" aria-label="Mynt">🪙 <b id="coins">0</b></div>
+      <div class="pill timer" id="ptime" aria-label="Speltid kvar" hidden></div>
+      <button class="pill" id="snd" data-act="sound" aria-label="Ljud">🔊</button>
     </div>
   </div>
   <main><div class="board" id="board"></div></main>
@@ -184,6 +207,7 @@ input.name{width:100%;font:inherit;font-size:20px;font-weight:700;border:3px sol
 </div>
 <div id="sheetWrap" hidden><div class="scrim" data-act="close"></div><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
 <div class="toast" id="toast" role="status"></div>
+<div class="lock" id="lock" role="dialog" aria-modal="true" hidden></div>
 
 <script>
 const COLS=6, MAXROWS=14;
@@ -289,7 +313,7 @@ function fresh(){
   t[22]={k:'hus',next:now()+30000};
   [0,5,11,48,53].forEach(i=>t[i]={k:'trad'});
   t[42]={k:'blommor'};t[47]={k:'gran'};
-  return {v:1,name:'Min by',coins:50,xp:0,level:1,inv:{vete:2},tiles:t,orders:[],gift:'',seen:false,news:2,rows:9,up:{}};
+  return {v:1,name:'Min by',coins:50,xp:0,level:1,inv:{vete:2},tiles:t,orders:[],gift:'',seen:false,news:3,rows:9,up:{}};
 }
 let S=null;
 try{S=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){S=null}
@@ -299,6 +323,158 @@ while(S.tiles.length<COLS*S.rows)S.tiles.push(null);
 S.tiles.forEach(t=>{if(t&&!B[t.k])t.k='trad'});
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 const N=()=>COLS*S.rows;
+
+/* Föräldraläge. Sparas under en egen nyckel så att ”Börja om” inte stänger av det. */
+const PKEY='lilla-byn-foralder';
+const ACTS=[['las','📚','Läs en bok i 20 minuter'],['studs','🤸','Gå ut och hoppa studsmatta'],['promenad','🚶','Ta en promenad'],
+  ['laxor','✏️','Gör läxor i 20 minuter'],['stada','🧹','Städa ditt rum'],['boll','⚽','Spela boll ute'],['rita','🎨','Rita eller måla något'],
+  ['lego','🧩','Bygg med lego eller lägg ett pussel'],['hjalp','🍽️','Hjälp till att duka eller diska'],['musik','🎵','Öva på ditt instrument']];
+const MINS=[15,30,45,60,90,120];
+let P=null;
+try{P=JSON.parse(localStorage.getItem(PKEY)||'null')}catch(e){P=null}
+if(!P||typeof P!=='object')P={on:false};
+P.sel=P.sel||[];P.custom=P.custom||[];P.fails=P.fails||0;P.wait=P.wait||0;P.mins=P.mins||30;P.tick=now();
+function saveP(){try{localStorage.setItem(PKEY,JSON.stringify(P))}catch(e){}}
+const allActs=custom=>ACTS.map(([id,e,t])=>({id,e,t})).concat(custom);
+const minTxt=m=>m<60?m+' min':String(m/60).replace('.',',')+' tim';
+const leftTxt=ms=>ms>=60000?Math.ceil(ms/60000)+' min':Math.ceil(Math.max(0,ms)/1000)+' s';
+/* Bara tid med spelet öppet och synligt räknas */
+function tickParent(){
+  const T=now(),d=Math.min(2000,Math.max(0,T-P.tick));P.tick=T;
+  if(!P.on||P.locked||document.visibilityState!=='visible')return;
+  P.left-=d;
+  if(P.left<=120000&&P.left+d>120000)toast('⏳ 2 minuter kvar att spela');
+  if(P.left<=0){P.left=0;P.locked=true;mode=null;closeSheet();lockCtx={};renderLock();sfx('lock');syncMusic()}
+  saveP();
+}
+document.addEventListener('visibilitychange',()=>{P.tick=now()});
+function tryCode(v){
+  const T=now();
+  if(P.wait>T)return 'Vänta '+fmt(P.wait-T)+' och försök igen.';
+  if(v===P.code){P.fails=0;saveP();return ''}
+  P.fails++;if(P.fails>=3)P.wait=T+30000*(P.fails-2);saveP();
+  return P.fails>=3?'Fel kod. Vänta '+fmt(P.wait-T)+' innan du försöker igen.':'Fel kod, försök igen.';
+}
+let lockCtx={};
+function renderLock(){
+  const el=$('#lock');el.hidden=!(P.on&&P.locked);if(el.hidden){el.innerHTML='';return}
+  const acts=allActs(P.custom).filter(a=>P.sel.includes(a.id));
+  el.innerHTML=`<div class="card"><div class="party"><div class="burst">⏰</div><h2>Speltiden är slut!</h2></div>
+  <p>Bra spelat! Byn väntar på dig. Gör en av de här sakerna, sen kan en vuxen ge dig mer tid.</p>
+  ${acts.map(a=>`<div class="row"><span class="big">${a.e}</span><span class="txt"><b>${esc(a.t)}</b></span></div>`).join('')}
+  ${lockCtx.open?`<label class="lbl" for="lockIn">Vuxenkod</label>
+    <input class="name code" id="lockIn" data-enter="lockTry" type="password" inputmode="numeric" autocomplete="off" maxlength="8">
+    ${lockCtx.err?`<p class="err">${lockCtx.err}</p>`:''}<button class="btn wide" data-act="lockTry">Lås upp</button>`
+  :`<button class="btn wide" data-act="lockOpen">🔑 Jag är vuxen</button>`}</div>`;
+  if(lockCtx.open)setTimeout(()=>{const i=$('#lockIn');if(i)i.focus()},50);
+}
+/* Ljud. Allt syntetiseras med Web Audio, inga ljudfiler. Inställningen har egen nyckel. */
+const AKEY='lilla-byn-ljud';
+let A={music:true,fx:true};
+try{A=Object.assign(A,JSON.parse(localStorage.getItem(AKEY)||'{}'))}catch(e){}
+function saveA(){try{localStorage.setItem(AKEY,JSON.stringify(A))}catch(e){}}
+let ac=null,musBus,fxBus,noiseBuf=null,musTimer=null,musNext=0,musStep=0,natureNext=0;
+const hz=m=>440*Math.pow(2,(m-69)/12);
+function audio(){
+  if(!ac){const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;ac=new C();
+    const comp=ac.createDynamicsCompressor();comp.connect(ac.destination);
+    musBus=ac.createGain();musBus.gain.value=0;musBus.connect(comp);
+    fxBus=ac.createGain();fxBus.gain.value=.5;fxBus.connect(comp)}
+  if(ac.state==='suspended')ac.resume();
+  return ac;
+}
+function voice(bus,f,t,dur,{type='sine',vol=.2,att=.005,to=0}={}){
+  const o=ac.createOscillator(),g=ac.createGain();o.type=type;o.frequency.setValueAtTime(f,t);
+  if(to)o.frequency.exponentialRampToValueAtTime(to,t+dur);
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+att);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  o.connect(g);g.connect(bus);o.start(t);o.stop(t+dur+.05);
+}
+function noise(bus,t,dur,{freq=1000,type='bandpass',vol=.2,q=1}={}){
+  if(!noiseBuf){noiseBuf=ac.createBuffer(1,ac.sampleRate,ac.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}
+  const s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain();s.buffer=noiseBuf;f.type=type;f.frequency.value=freq;f.Q.value=q;
+  g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);s.connect(f);f.connect(g);g.connect(bus);s.start(t);s.stop(t+dur+.05);
+}
+const FX={
+  tap:t=>voice(fxBus,880,t,.06,{vol:.08}),
+  no:t=>{voice(fxBus,240,t,.16,{type:'triangle',vol:.18,to:180});voice(fxBus,200,t+.12,.2,{type:'triangle',vol:.15,to:150})},
+  plant:t=>{voice(fxBus,320,t,.1,{vol:.25,to:640});voice(fxBus,480,t+.07,.12,{vol:.2,to:900})},
+  water:t=>{for(let n=0;n<3;n++)voice(fxBus,1400-n*150,t+n*.07+Math.random()*.03,.12,{vol:.18,to:500})},
+  harvest:t=>[660,880,1320].forEach((f,n)=>voice(fxBus,f,t+n*.06,.25,{type:'triangle',vol:.2})),
+  plow:t=>{noise(fxBus,t,.22,{freq:500,type:'lowpass',vol:.35});voice(fxBus,110,t,.18,{vol:.3,to:70})},
+  coin:t=>{voice(fxBus,1320,t,.12,{type:'square',vol:.05});voice(fxBus,1760,t+.08,.3,{type:'square',vol:.05})},
+  build:t=>[0,.13].forEach(d=>{noise(fxBus,t+d,.07,{freq:1200,vol:.4,q:3});voice(fxBus,180,t+d,.09,{type:'triangle',vol:.25})}),
+  animal:t=>{voice(fxBus,900,t,.09,{vol:.15,to:1400});voice(fxBus,1000,t+.12,.1,{vol:.15,to:1600})},
+  make:t=>{voice(fxBus,392,t,.12,{type:'triangle',vol:.2});voice(fxBus,523,t+.1,.18,{type:'triangle',vol:.2})},
+  deliver:t=>{FX.coin(t);[523,659,784,1047].forEach((f,n)=>voice(fxBus,f,t+.15+n*.08,.35,{type:'triangle',vol:.2}))},
+  level:t=>{[523,659,784,1047,784,1047].forEach((f,n)=>voice(fxBus,f,t+n*.11,n===5?.8:.3,{type:'triangle',vol:.22}));
+    [262,330,392].forEach(f=>voice(fxBus,f,t+.55,1,{vol:.1,att:.05}))},
+  lock:t=>[784,659,523].forEach((f,n)=>voice(fxBus,f,t+n*.18,.6,{vol:.2})),
+  unlock:t=>[523,659,784,1047].forEach((f,n)=>voice(fxBus,f,t+n*.09,.4,{type:'triangle',vol:.2}))
+};
+function sfx(k){if(!A.fx||!audio())return;FX[k](ac.currentTime+.01)}
+/* Musiken: C–Am–F–G med en enkel melodi, fåglar på dagen och syrsor på kvällen */
+const CH=[[48,[60,64,67]],[45,[57,60,64]],[41,[57,60,65]],[43,[55,59,62]]];
+const MEL=[[72,0,76,0,79,0,76,74, 72,0,0,69,72,0,0,0, 69,0,72,0,77,0,76,72, 74,0,0,0,71,0,74,0],
+  [79,0,76,0,72,0,74,76, 76,0,72,0,69,0,0,0, 72,0,69,0,65,0,69,72, 71,0,74,0,79,0,0,0]];
+const ORDER=[0,0,1,-1], EIGHTH=60/80/2;
+const night=()=>matchMedia('(prefers-color-scheme: dark)').matches;
+function bird(t){const n=2+rnd(4),b=2200+Math.random()*1200;for(let i=0;i<n;i++)voice(musBus,b,t+i*.13,.09,{vol:.05,to:b*(1.3+Math.random()*.4)})}
+function crickets(t){for(let r=0;r<3;r++)for(let i=0;i<6;i++)voice(musBus,4400,t+r*.5+i*.035,.025,{vol:.025})}
+function musicTick(){
+  while(musNext<ac.currentTime+.4){
+    const t=musNext,bar=Math.floor(musStep/8)%4,e=musStep%8,ph=ORDER[Math.floor(musStep/32)%ORDER.length],[bass,pad]=CH[bar];
+    if(e===0){voice(musBus,hz(bass),t,EIGHTH*6,{vol:.3,att:.02});pad.forEach(m=>voice(musBus,hz(m),t,EIGHTH*8.5,{type:'triangle',vol:.05,att:.4}))}
+    if(e===4)voice(musBus,hz(bass+7),t,EIGHTH*3,{vol:.18,att:.02});
+    if(ph>=0){const m=MEL[ph][bar*8+e];if(m&&Math.random()>.12){voice(musBus,hz(m),t,.9,{vol:.16});voice(musBus,hz(m+12),t,.3,{vol:.03})}}
+    musStep++;musNext+=EIGHTH;
+  }
+  if(ac.currentTime>natureNext){natureNext=ac.currentTime+5+Math.random()*10;(night()?crickets:bird)(ac.currentTime+.1)}
+}
+function syncMusic(){
+  if(!ac)return;
+  const on=A.music&&!(P.on&&P.locked)&&document.visibilityState==='visible',T=ac.currentTime;
+  musBus.gain.cancelScheduledValues(T);musBus.gain.setTargetAtTime(on?.35:0,T,on?.8:.15);
+  if(on&&!musTimer){musNext=T+.1;musStep=0;natureNext=T+3;musTimer=setInterval(musicTick,100)}
+  if(!on&&musTimer){clearInterval(musTimer);musTimer=null}
+}
+/* Webbläsare tillåter ljud först efter ett tryck */
+['pointerdown','keydown'].forEach(ev=>document.addEventListener(ev,()=>{if(audio())syncMusic()},{passive:true}));
+document.addEventListener('visibilitychange',syncMusic);
+function soundHTML(){
+  const row=(k,e,n,d)=>`<div class="row pick${A[k]?' on':''}" data-act="sndToggle" data-arg="${k}" role="checkbox" aria-checked="${A[k]}" tabindex="0">
+    <span class="big">${e}</span><span class="txt"><b>${n}</b><small>${d}</small></span><span class="tick">${A[k]?'✓':''}</span></div>`;
+  return `<h2>Ljud</h2><p>Välj vad du vill höra.</p>${row('music','🎵','Musik','Lugn musik och ljud från naturen')}${row('fx','🔔','Ljudeffekter','Ljud när du sår, skördar och bygger')}`;
+}
+function parentDraft(){
+  return {code:'',code2:'',newAct:'',err:'',mins:P.mins,sel:P.on?[...P.sel]:['las','promenad'],custom:P.custom.map(a=>({...a}))};
+}
+function parentCodeHTML(c){
+  return `<h2>👪 Föräldraläge</h2><p>Skriv din kod för att ändra inställningarna.</p>
+  <input class="name code" id="pcIn" data-f="code" data-enter="pCode" type="password" inputmode="numeric" autocomplete="off" maxlength="8" value="${esc(c.code||'')}">
+  ${c.err?`<p class="err">${c.err}</p>`:''}<button class="btn wide" data-act="pCode">Fortsätt</button>`;
+}
+function parentHTML(c){
+  const acts=allActs(c.custom);
+  return `<h2>👪 Föräldraläge</h2><p>${P.on?'Föräldraläget är på. Här kan du ändra inställningarna.'
+    :'När speltiden är slut låses spelet. Barnet gör en aktivitet, och sedan låser du upp med din kod.'}</p>
+  <label class="lbl" for="pc1">${P.on?'Ny kod (lämna tomt för att behålla den gamla)':'Välj en kod, 4–8 siffror'}</label>
+  <input class="name code" id="pc1" data-f="code" type="password" inputmode="numeric" autocomplete="off" maxlength="8" value="${esc(c.code)}">
+  <label class="lbl" for="pc2">Skriv koden igen</label>
+  <input class="name code" id="pc2" data-f="code2" type="password" inputmode="numeric" autocomplete="off" maxlength="8" value="${esc(c.code2)}">
+  <span class="lbl">Speltid innan spelet låses</span>
+  <div class="chips">${MINS.map(m=>`<button class="${m===c.mins?'on':''}" data-act="pMins" data-arg="${m}">${minTxt(m)}</button>`).join('')}</div>
+  <span class="lbl">Aktiviteter för mer tid</span><p>Välj en eller flera. Barnet gör en av dem innan du låser upp.</p>
+  ${acts.map(a=>{const on=c.sel.includes(a.id);
+    return `<div class="row pick${on?' on':''}" data-act="pPick" data-arg="${a.id}" role="checkbox" aria-checked="${on}" tabindex="0">
+    <span class="big">${a.e}</span><span class="txt"><b>${esc(a.t)}</b></span>
+    ${a.id[0]==='c'?`<button class="btn soft" data-act="pDel" data-arg="${a.id}" aria-label="Ta bort">✕</button>`:''}<span class="tick">${on?'✓':''}</span></div>`}).join('')}
+  <div class="addrow"><input class="name" id="pNew" data-f="newAct" data-enter="pAdd" maxlength="40" placeholder="Egen aktivitet, t.ex. Bada" value="${esc(c.newAct)}">
+  <button class="btn" data-act="pAdd">Lägg till</button></div>
+  ${c.err?`<p class="err">${c.err}</p>`:''}
+  <button class="btn wide" data-act="pSave">${P.on?'Spara':'Slå på föräldraläge'}</button>
+  ${P.on?`<p style="margin-top:18px">Ge barnet full speltid igen direkt, eller stäng av föräldraläget helt.</p>
+  <div class="btns" style="flex-direction:row"><button class="btn soft" data-act="pFull">⏳ Full tid nu</button><button class="btn soft" data-act="pOff">Stäng av</button></div>`:''}`;
+}
 
 let mode=null, sheetFn=null, sheetCtx={};
 const has=k=>S.inv[k]||0;
@@ -357,7 +533,7 @@ function addXP(n){
     setTimeout(showLevelUp,350);}
 }
 function showLevelUp(){
-  if(!pendingUps)return;const {bonus,u}=pendingUps;pendingUps=null;
+  if(!pendingUps)return;const {bonus,u}=pendingUps;pendingUps=null;sfx('level');
   openSheet(()=>`<div class="party"><div class="burst">🎉</div><h2>Nivå ${S.level}!</h2>
     <p>Byn växer. Du får ${bonus} 🪙 i present.</p>
     ${u.length?`<p>Nytt att upptäcka:</p><div class="unl">${u.map(x=>`<span>${x}</span>`).join('')}</div>`:`<p>Du är en riktig mästarbonde! Fortsätt samla stjärnor för fler presenter.</p>`}
@@ -431,6 +607,9 @@ function render(){
   $('#lvl').textContent=S.level;
   $('#xp').style.width=(S.xp/need(S.level)*100)+'%';
   $('#coins').textContent=S.coins;
+  $('#snd').textContent=A.music||A.fx?'🔊':'🔇';
+  const pt=$('#ptime');pt.hidden=!P.on;
+  if(P.on){pt.textContent='⏳ '+leftTxt(P.left);pt.classList.toggle('low',P.left<=120000)}
   const ready=S.orders.filter(canDeliver).length;
   $('#odot').hidden=!ready;$('#odot').textContent=ready;
   board.classList.toggle('placing',!!(mode&&mode.type==='place'));
@@ -447,20 +626,21 @@ function render(){
 }
 function changed(){save();render()}
 
-board.addEventListener('click',e=>{const b=e.target.closest('.tile');if(b)tap(+b.dataset.i)});
+board.addEventListener('click',e=>{const b=e.target.closest('.tile');if(b&&!(P.on&&P.locked))tap(+b.dataset.i)});
 function sumFloat(i,got){const s=Object.entries(got).map(([k,q])=>'+'+q+' '+em(k)).join('  ');if(s)float(i,s)}
 function tap(i){
   const t=S.tiles[i],T=now();
   if(mode&&mode.type==='place'){
-    if(t){toast('Välj en tom grön ruta');return}
+    if(t){sfx('no');toast('Välj en tom grön ruta');return}
     const k=mode.k,c=cost(k),b=B[k];
-    if(S.coins<c){toast('Du behöver fler mynt 🪙');mode=null;render();return}
+    if(S.coins<c){sfx('no');toast('Du behöver fler mynt 🪙');mode=null;render();return}
     S.coins-=c;S.tiles[i]={k};if(b.t==='house')S.tiles[i].next=T+b.every*1000;
-    float(i,'-'+c+' 🪙');if(b.xp)addXP(b.xp);
+    float(i,'-'+c+' 🪙');sfx('build');if(b.xp)addXP(b.xp);
     if(!(b.t==='field'||b.t==='deco'||b.t==='sprinkler')||S.coins<cost(k))mode=null;
     changed();return;
   }
   if(mode&&mode.type==='edit'){
+    sfx('tap');
     if(mode.sel==null){if(t)mode.sel=i}
     else if(mode.sel===i)mode.sel=null;
     else if(!t){S.tiles[i]=S.tiles[mode.sel];S.tiles[mode.sel]=null;mode.sel=null;save()}
@@ -472,27 +652,28 @@ function tap(i){
   if(b.t==='field'){
     if(t.job&&T>=t.job.end){
       const got={};area(i,f=>f.k==='falt'&&f.job&&T>=f.job.end).forEach(j=>{const k=harvestTile(j,T);got[k]=(got[k]||0)+2});
-      sumFloat(i,got);changed();return;
+      sumFloat(i,got);sfx('harvest');changed();return;
     }
     if(t.job){
-      if(!t.job.w){const js=area(i,f=>f.k==='falt'&&f.job&&T<f.job.end&&!f.job.w);js.forEach(j=>water(S.tiles[j],T));float(i,'💧'+(js.length>1?' ×'+js.length:''));changed();return}
-      return toast(em(t.job.item)+' '+nm(t.job.item)+' är klar om '+fmt(t.job.end-T));
+      if(!t.job.w){const js=area(i,f=>f.k==='falt'&&f.job&&T<f.job.end&&!f.job.w);js.forEach(j=>water(S.tiles[j],T));float(i,'💧'+(js.length>1?' ×'+js.length:''));sfx('water');changed();return}
+      sfx('tap');return toast(em(t.job.item)+' '+nm(t.job.item)+' är klar om '+fmt(t.job.end-T));
     }
     if(t.raw){
       const js=area(i,f=>f.k==='falt'&&!f.job&&f.raw);
       js.forEach(j=>{const f=S.tiles[j];f.raw=false;if(S.up.sa&&f.last)plantTile(j,f.last,T)});
-      float(i,'⛏️'+(js.length>1?' ×'+js.length:''));changed();return;
+      float(i,'⛏️'+(js.length>1?' ×'+js.length:''));sfx('plow');changed();return;
     }
-    return openSheet(seedsHTML,{i});
+    sfx('tap');return openSheet(seedsHTML,{i});
   }
+  sfx('tap');
   if(b.t==='sprinkler')return toast(b.e+' '+b.n+' vattnar åkrarna '+(b.r===1?'runt omkring':'i en stor ring'));
   if(b.t==='animal'){const f=food(b);
     if(!t.job){
-      if(has(f)<1){toast(f==='foder'?'Djuren är hungriga! Gör 🥣 foder i Foderfabriken.':'Bina vill ha '+em(f)+' '+nm(f).toLowerCase()+'.');return}
-      S.inv[f]--;t.job={start:T,end:T+b.time*1000};float(i,'-1 '+em(f));changed();return;
+      if(has(f)<1){sfx('no');toast(f==='foder'?'Djuren är hungriga! Gör 🥣 foder i Foderfabriken.':'Bina vill ha '+em(f)+' '+nm(f).toLowerCase()+'.');return}
+      S.inv[f]--;t.job={start:T,end:T+b.time*1000};float(i,'-1 '+em(f));sfx('animal');changed();return;
     }
     if(T<t.job.end)return toast(b.n+': klart om '+fmt(t.job.end-T));
-    add(b.out,2);t.job=null;float(i,'+2 '+em(b.out));addXP(2);
+    add(b.out,2);t.job=null;float(i,'+2 '+em(b.out));sfx('harvest');addXP(2);
     if(S.up.djur&&has(f)>=1){S.inv[f]--;t.job={start:T,end:T+b.time*1000}}
     changed();return;
   }
@@ -502,13 +683,13 @@ function tap(i){
   }
   if(b.t==='house'){
     if(T<t.next)return toast('Hyran kommer om '+fmt(t.next-T));
-    S.coins+=b.rent;t.next=T+b.every*1000;float(i,'+'+b.rent+' 🪙');changed();return;
+    S.coins+=b.rent;t.next=T+b.every*1000;float(i,'+'+b.rent+' 🪙');sfx('coin');changed();return;
   }
   toast(b.e+' '+b.n);
 }
 function collectFactory(i){
   const t=S.tiles[i],r=R[t.job.r],T=now();add(r.out,r.q);t.job=null;
-  float(i,'+'+r.q+' '+em(r.out));addXP(Math.max(2,Math.round(val(r.out)/4)));
+  float(i,'+'+r.q+' '+em(r.out));sfx('harvest');addXP(Math.max(2,Math.round(val(r.out)/4)));
   if(S.up.fabrik&&t.rep&&enough(R[t.rep])){use(R[t.rep]);t.job={r:t.rep,start:T,end:T+R[t.rep].t*1000}}
   changed();
 }
@@ -585,26 +766,54 @@ function welcomeHTML(){
   <button class="btn wide" data-act="start">Börja spela</button>`;
 }
 function newsHTML(){
-  return `<div class="party"><div class="burst">🚜</div><h2>Nytt i byn!</h2></div>
-  <ol class="steps"><li>Efter skörd behöver åkern plöjas ⛏️ innan du sår igen.</li>
-  <li>Tryck på det som växer för att vattna 💧. Då växer det dubbelt så fort.</li>
-  <li>Bygg 💦 vattenspridare som vattnar åkrarna runt omkring helt själva.</li>
-  <li>Under 🔨 Bygg finns fliken Verktyg: räfsor som skördar många rutor på en gång, traktor, såmaskin, skördetröska, djurskötare och mer mark.</li>
-  <li>Nya grödor, djur, fabriker och pynt ända upp till nivå 20.</li></ol>
+  return `<div class="party"><div class="burst">🎵</div><h2>Nytt i byn!</h2></div>
+  <ol class="steps"><li>Nu finns det musik och ljud i byn. Tryck på 🔊 uppe till höger för att stänga av eller sätta på.</li>
+  <li>På dagen kvittrar fåglarna och på kvällen spelar syrsorna.</li>
+  <li>För vuxna: tryck på byns namnskylt och välj 👪 Föräldraläge för att bestämma hur länge man kan spela.</li></ol>
   <button class="btn wide" data-act="close">Toppen!</button>`;
 }
 function renameHTML(c){
   return `<h2>Byns namn</h2><input class="name" id="nameIn" maxlength="20" value="${esc(S.name)}">
   <button class="btn wide" data-act="saveName">Spara namn</button>
+  <p style="margin-top:22px">För vuxna: begränsa speltiden och välj aktiviteter som ger mer tid.</p>
+  <button class="btn soft" data-act="parent">👪 Föräldraläge${P.on?' (på)':''}</button>
   <p style="margin-top:22px">Vill du börja om från början? Allt i byn försvinner.</p>
   <button class="btn soft" data-act="reset">${c.sure?'Ja, börja om':'Börja om'}</button>`;
 }
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 
+const LOUD=new Set(['plant','plantall','make','collect','deliver','upgrade','remove','lockTry','sndToggle']);
 document.addEventListener('click',e=>{
   const a=e.target.closest('[data-act]');if(!a)return;
+  if(P.on&&P.locked&&!a.closest('#lock'))return;
   const arg=a.dataset.arg,T=now();
+  if(!LOUD.has(a.dataset.act))sfx('tap');
   switch(a.dataset.act){
+    case 'sound':openSheet(soundHTML);break;
+    case 'sndToggle':A[arg]=!A[arg];saveA();audio();syncMusic();sfx('tap');render();break;
+    case 'lockOpen':lockCtx={open:true};renderLock();break;
+    case 'lockTry':{const err=tryCode(($('#lockIn').value||'').trim());
+      if(err){sfx('no');lockCtx={open:true,err};renderLock();break}
+      P.locked=false;P.left=P.mins*60000;P.tick=now();saveP();lockCtx={};renderLock();render();sfx('unlock');syncMusic();toast('🎉 '+minTxt(P.mins)+' till att spela!');break}
+    case 'parent':openSheet(P.on?parentCodeHTML:parentHTML,P.on?{code:'',err:''}:parentDraft());break;
+    case 'pCode':{const err=tryCode((sheetCtx.code||'').trim());
+      if(err){sheetCtx.err=err;sheetCtx.code='';render();break}
+      openSheet(parentHTML,parentDraft());break}
+    case 'pMins':sheetCtx.mins=+arg;render();break;
+    case 'pPick':{const s=sheetCtx.sel,ix=s.indexOf(arg);if(ix<0)s.push(arg);else s.splice(ix,1);render();break}
+    case 'pDel':sheetCtx.custom=sheetCtx.custom.filter(x=>x.id!==arg);sheetCtx.sel=sheetCtx.sel.filter(x=>x!==arg);render();break;
+    case 'pAdd':{const v=(sheetCtx.newAct||'').trim();if(!v)break;const id='c'+T;
+      sheetCtx.custom.push({id,e:'⭐',t:v});sheetCtx.sel.push(id);sheetCtx.newAct='';render();break}
+    case 'pSave':{const c=sheetCtx,first=!P.on;let err='';
+      if(first||c.code||c.code2){if(!/^\d{4,8}$/.test(c.code))err='Koden ska vara 4–8 siffror.';else if(c.code!==c.code2)err='Koderna är inte likadana. Skriv dem igen.'}
+      if(!err&&!c.sel.length)err='Välj minst en aktivitet.';
+      if(err){c.err=err;render();break}
+      if(c.code)P.code=c.code;
+      if(first||c.mins!==P.mins)P.left=c.mins*60000;
+      P.on=true;P.locked=false;P.mins=c.mins;P.sel=[...c.sel];P.custom=c.custom;P.tick=now();saveP();
+      closeSheet();render();toast(first?'👪 Föräldraläget är på. Speltid: '+minTxt(P.mins):'Inställningarna är sparade');break}
+    case 'pFull':P.left=P.mins*60000;saveP();closeSheet();render();toast('⏳ Full speltid: '+minTxt(P.mins));break;
+    case 'pOff':P.on=false;P.locked=false;saveP();closeSheet();render();toast('Föräldraläget är avstängt');break;
     case 'close':closeSheet();if(pendingUps)setTimeout(showLevelUp,200);break;
     case 'shop':mode=null;openSheet(shopHTML,{cat:'gard'});break;
     case 'tab':sheetCtx.cat=arg;render();break;
@@ -615,31 +824,38 @@ document.addEventListener('click',e=>{
     case 'buy':closeSheet();mode={type:'place',k:arg};render();break;
     case 'upgrade':{const u=UP[arg];let c;
       if(u.tiers){const lv=arg==='mark'?S.rows-9:(S.up[arg]||0);const tr=u.tiers[lv];if(!tr||tr.lvl>S.level)break;c=tr.cost;if(S.coins<c)break;S.coins-=c;
-        if(arg==='mark'){S.rows++;for(let n=0;n<COLS;n++)S.tiles.push(null);toast('🗺️ Byn fick en ny rad med mark!')}else{S.up[arg]=lv+1;toast(u.e+' '+tr.n+' är din!')}}
-      else{if(S.up[arg]||u.lvl>S.level||S.coins<u.cost)break;S.coins-=u.cost;S.up[arg]=true;toast(u.e+' '+u.n+' är på plats!');process()}
+        sfx('build');if(arg==='mark'){S.rows++;for(let n=0;n<COLS;n++)S.tiles.push(null);toast('🗺️ Byn fick en ny rad med mark!')}else{S.up[arg]=lv+1;toast(u.e+' '+tr.n+' är din!')}}
+      else{if(S.up[arg]||u.lvl>S.level||S.coins<u.cost)break;S.coins-=u.cost;S.up[arg]=true;sfx('build');toast(u.e+' '+u.n+' är på plats!');process()}
       changed();break}
-    case 'remove':{const t=S.tiles[mode.sel],back=Math.floor(B[t.k].cost/2);S.tiles[mode.sel]=null;S.coins+=back;toast('Borttagen, du fick tillbaka '+back+' 🪙');mode.sel=null;changed();break}
-    case 'plant':{const js=area(sheetCtx.i,f=>f.k==='falt'&&!f.job&&!f.raw);js.forEach(j=>plantTile(j,arg,T));float(sheetCtx.i,em(arg)+(js.length>1?' ×'+js.length:''));closeSheet();changed();break}
-    case 'plantall':{let n=0;S.tiles.forEach((t,j)=>{if(t&&t.k==='falt'&&!t.job&&!t.raw){plantTile(j,arg,T);n++}});toast('Sådde '+em(arg)+' på '+n+' åkrar');closeSheet();changed();break}
-    case 'make':{const t=S.tiles[sheetCtx.i],r=R[arg];if(t.job||!enough(r))break;use(r);t.job={r:arg,start:T,end:T+r.t*1000};t.rep=arg;changed();break}
+    case 'remove':{const t=S.tiles[mode.sel],back=Math.floor(B[t.k].cost/2);S.tiles[mode.sel]=null;S.coins+=back;sfx('plow');toast('Borttagen, du fick tillbaka '+back+' 🪙');mode.sel=null;changed();break}
+    case 'plant':{const js=area(sheetCtx.i,f=>f.k==='falt'&&!f.job&&!f.raw);js.forEach(j=>plantTile(j,arg,T));sfx('plant');float(sheetCtx.i,em(arg)+(js.length>1?' ×'+js.length:''));closeSheet();changed();break}
+    case 'plantall':{let n=0;S.tiles.forEach((t,j)=>{if(t&&t.k==='falt'&&!t.job&&!t.raw){plantTile(j,arg,T);n++}});sfx('plant');toast('Sådde '+em(arg)+' på '+n+' åkrar');closeSheet();changed();break}
+    case 'make':{const t=S.tiles[sheetCtx.i],r=R[arg];if(t.job||!enough(r))break;use(r);t.job={r:arg,start:T,end:T+r.t*1000};t.rep=arg;sfx('make');changed();break}
     case 'collect':collectFactory(sheetCtx.i);break;
     case 'deliver':{const o=S.orders[+arg];if(!canDeliver(o))break;
-      Object.entries(o.items).forEach(([k,q])=>S.inv[k]-=q);S.coins+=o.coins;S.orders[+arg]=newOrder();
+      Object.entries(o.items).forEach(([k,q])=>S.inv[k]-=q);S.coins+=o.coins;S.orders[+arg]=newOrder();sfx('deliver');
       float(null,'+'+o.coins+' 🪙  +'+o.xp+' ⭐');addXP(o.xp);changed();break}
     case 'swap':S.orders[+arg]=newOrder();changed();break;
     case 'rename':openSheet(renameHTML,{sure:false});break;
-    case 'saveName':case 'start':{const v=($('#nameIn').value||'').trim();if(v)S.name=v;S.seen=true;S.news=2;closeSheet();changed();break}
+    case 'saveName':case 'start':{const v=($('#nameIn').value||'').trim();if(v)S.name=v;S.seen=true;S.news=3;closeSheet();changed();break}
     case 'reset':if(!sheetCtx.sure){sheetCtx.sure=true;render()}else{S=fresh();while(S.orders.length<3)S.orders.push(newOrder());S.seen=true;mode=null;closeSheet();changed();toast('En ny by väntar!')}break;
   }
 });
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#sheetWrap').hidden)closeSheet();else{mode=null;render()}}});
+/* Textfält i ark: spara värdet i sheetCtx så att det överlever omritning, utan att rita om medan man skriver */
+document.addEventListener('input',e=>{const f=e.target.dataset&&e.target.dataset.f;
+  if(f&&sheetFn&&e.target.closest('#sheet')){sheetCtx[f]=e.target.value;$('#sheet')._h=sheetHead()+sheetFn(sheetCtx)}});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&e.target.dataset&&e.target.dataset.enter){const b=document.querySelector('[data-act="'+e.target.dataset.enter+'"]');if(b){e.preventDefault();b.click()}return}
+  if(e.key===' '&&e.target.classList&&e.target.classList.contains('pick')){e.preventDefault();e.target.click();return}
+  if(P.on&&P.locked)return;
+  if(e.key==='Escape'){if(!$('#sheetWrap').hidden)closeSheet();else{mode=null;render()}}});
 
 process();
-setInterval(()=>{process();render()},1000);
+setInterval(()=>{process();tickParent();render()},1000);
 setInterval(save,5000);
-render();
+render();renderLock();
 if(!S.seen)openSheet(welcomeHTML);
-else if(S.news!==2){S.news=2;save();openSheet(newsHTML)}
+else if(S.news!==3){S.news=3;save();openSheet(newsHTML)}
 </script>
 </body>
 </html>

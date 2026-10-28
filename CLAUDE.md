@@ -18,7 +18,19 @@ Ett bygg- och odlingsspel i stil med Township, gjort för barn (ungefär 6–13 
 ## Spara-data (viktigt)
 - Spelet sparas i `localStorage` under nyckeln `lilla-byn-v1`. Byt ALDRIG nyckeln, då försvinner barnens byar.
 - Nya fält i state måste få standardvärden vid inläsning (se migreringen direkt efter `JSON.parse`), så att gamla sparfiler fungerar.
-- `S.news` styr "Nytt i byn"-arket. Höj värdet och skriv om `newsHTML()` när en större uppdatering släpps.
+- `S.news` styr "Nytt i byn"-arket. Höj värdet och skriv om `newsHTML()` när en större uppdatering släpps (nu 3). Värdet finns på tre ställen: `fresh()`, `start`/`saveName` och sista raden i skriptet.
+- Föräldraläget (`P`) sparas under `lilla-byn-foralder` och ljudinställningen (`A`) under `lilla-byn-ljud`. De ligger utanför `S` med flit, så att ”Börja om” inte nollställer dem.
+
+## Föräldraläge
+- Öppnas från byns namnskylt → 👪 Föräldraläge. När läget är på krävs koden för att ändra inställningarna.
+- `tickParent()` räknar bara tid när sidan är synlig (max 2 s per tick). När `P.left` når 0 sätts `P.locked`, och `#lock` täcker hela spelet. Klick och tangenter blockeras då utanför `#lock`.
+- Rätt kod ger `P.mins` minuter till. Efter 3 felaktiga försök måste man vänta, och väntetiden växer.
+- Det finns ingen återställning av glömd kod i spelet.
+
+## Ljud
+- Allt syntetiseras med Web Audio (`voice`, `noise`), inga ljudfiler. Effekterna finns i `FX` och spelas med `sfx('namn')`. Musiken schemaläggs i `musicTick()`.
+- Ljud startar först efter ett tryck (krav i webbläsarna). Musiken pausas när sidan är dold eller spelet är låst (`syncMusic()`).
+- Knappar med `data-act` får ett klickljud automatiskt, utom de i `LOUD` som har egna ljud.
 
 ## Spelets uppbyggnad (i `<script>`)
 - `I` – alla varor (namn, emoji, värde). `CROPS` – grödor (nivå, växttid). `R` – recept i fabriker.
