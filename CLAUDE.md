@@ -58,6 +58,8 @@ Ett bygg- och odlingsspel inspirerat av klassiska odlings- och byggspel, gjort f
 - `process()` körs varje sekund och sköter automatik, även ikapp efter att spelet varit stängt (max 60 cykler per ruta).
 - `tap(i)` hanterar tryck på spelplanen. Ark (bottom sheets) ritas av funktioner som `shopHTML`, `factoryHTML`, `ordersHTML`.
 - Åkrar: plöjd → sådd → (vattnad = halva tiden) → skördad → behöver plöjas igen (om inte traktor finns).
+- En åker som växer visar själva grödan, som växer från liten till nästan full storlek (`--g`). Vattnad åker har mörk jord (`.wet`). Lägg inte tillbaka märken på åkrarna, det blev för plottrigt.
+- Stjärnor (XP): `need(l)=12·l^1.6`. Order är huvudkällan. Ett tryck som skördar ger 1 oavsett hur många åkrar, att hämta från djur ger 1 och från fabrik `max(1, värde/8)`. Pynt ger stjärnor bara första gången av varje sort. Automatik (skördetröska, djurskötare, fabriksarbetare) ger aldrig stjärnor, annars rusar nivåerna.
 - Med såmaskin blir en åker aldrig tom. Ett tryck på en vattnad åker som växer öppnar därför `seedsHTML` med `swap:true` (”Byt gröda?”). Det sår om åkrar som växer, men inte de som är klara att skörda (`sowable()`).
 
 ## Publicering
