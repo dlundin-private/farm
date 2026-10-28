@@ -7,6 +7,8 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <meta name="apple-mobile-web-app-title" content="Lilla Byn">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#BFE6F7">
 <link rel="preload" href="fonts/baloo2.woff2" as="font" type="font/woff2" crossorigin>
 <style>
 /* Typsnittet ligger i fonts/ (SIL OFL, se OFL-Baloo2.txt) så att inget hämtas från Google. */
@@ -183,11 +185,31 @@ input.name{width:100%;font:inherit;font-size:20px;font-weight:700;border:3px sol
 .addrow{display:flex;gap:8px;margin-bottom:12px}
 .addrow input{margin:0;flex:1;min-width:0}
 input.code{letter-spacing:.3em}
+
+/* Väder och årstider */
+.top{position:relative}
+.sign{max-width:calc(100% - 110px)}
+.wx{position:absolute;left:12px;top:10px;border:0;background:var(--panel);border-radius:999px;width:42px;height:42px;padding:0;
+  font-size:22px;line-height:1;display:grid;place-items:center;box-shadow:0 3px 0 var(--edge)}
+#wxfx{position:fixed;inset:0;pointer-events:none;z-index:5;overflow:hidden}
+#wxfx i{position:absolute;top:-12%;display:block;font-style:normal}
+#wxfx .drop{width:2px;height:16px;border-radius:1px;background:rgba(90,130,170,.5);animation:fall linear infinite}
+:root[data-theme="dark"] #wxfx .drop{background:rgba(170,200,255,.4)}
+#wxfx .flake{width:7px;height:7px;border-radius:50%;background:#fff;opacity:.9;animation:drift linear infinite}
+#wxfx .leaf{font-size:20px;animation:drift linear infinite}
+@keyframes fall{to{transform:translateY(118vh)}}
+@keyframes drift{0%{transform:translate(0,0) rotate(0)}50%{transform:translate(26px,60vh) rotate(180deg)}100%{transform:translate(-12px,120vh) rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){#wxfx{display:none}}
+:root[data-theme="light"][data-wx="moln"]{--sky:#C9DAE3}
+:root[data-theme="light"][data-wx="regn"],:root[data-theme="light"][data-wx="sno"]{--sky:#AFC3CE}
+:root[data-theme="light"][data-season="vinter"]{--grass:#9DC79B;--grass-dark:#6F9C73;--tile:#B8D9B2;--tile-hi:#C4E0BF}
+:root[data-theme="light"][data-season="host"]{--grass:#A8B75A;--grass-dark:#7D8E3C;--tile:#B3C46E;--tile-hi:#BECE7C}
 </style>
 </head>
 <body>
 <div id="app">
   <div class="top">
+    <button class="wx" id="wx" data-act="wx" aria-label="Vädret"></button>
     <button class="sign" id="sign" data-act="rename" aria-label="Byt namn på byn"></button>
     <div class="hud">
       <div class="pill level" aria-label="Nivå"><span>⭐</span><b id="lvl">1</b><span class="xpbar"><i id="xp"></i></span></div>
@@ -206,6 +228,7 @@ input.code{letter-spacing:.3em}
   </nav>
 </div>
 <div id="sheetWrap" hidden><div class="scrim" data-act="close"></div><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+<div id="wxfx" aria-hidden="true"></div>
 <div class="toast" id="toast" role="status"></div>
 <div class="lock" id="lock" role="dialog" aria-modal="true" hidden></div>
 
@@ -313,15 +336,59 @@ function fresh(){
   t[22]={k:'hus',next:now()+30000};
   [0,5,11,48,53].forEach(i=>t[i]={k:'trad'});
   t[42]={k:'blommor'};t[47]={k:'gran'};
-  return {v:1,name:'Min by',coins:50,xp:0,level:1,inv:{vete:2},tiles:t,orders:[],gift:'',seen:false,news:3,rows:9,up:{}};
+  return {v:1,name:'Min by',coins:50,xp:0,level:1,inv:{vete:2},tiles:t,orders:[],gift:'',seen:false,news:4,rows:9,up:{}};
 }
-let S=null;
-try{S=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){S=null}
+/* Flera byar. Första byn ligger kvar under KEY (så gamla sparfiler fungerar orörda), nya byar under KEY-id. */
+const BKEY='lilla-byn-byar', MAXBYAR=6;
+let BY=null;
+try{BY=JSON.parse(localStorage.getItem(BKEY)||'null')}catch(e){BY=null}
+if(!BY||!Array.isArray(BY.list)||!BY.list.length)BY={cur:'a',list:['a']};
+if(!BY.list.includes(BY.cur))BY.cur=BY.list[0];
+const keyFor=id=>id==='a'?KEY:KEY+'-'+id;
+function saveBY(){try{localStorage.setItem(BKEY,JSON.stringify(BY))}catch(e){}}
+function peek(id){try{const s=JSON.parse(localStorage.getItem(keyFor(id))||'null');return s?{name:s.name,level:s.level}:{name:'Ny by',level:1}}catch(e){return {name:'By',level:1}}}
+let S=null, switching=false;
+try{S=JSON.parse(localStorage.getItem(keyFor(BY.cur))||'null')}catch(e){S=null}
 if(!S||S.v!==1)S=fresh();
 S.up=S.up||{};S.rows=S.rows||9;
 while(S.tiles.length<COLS*S.rows)S.tiles.push(null);
 S.tiles.forEach(t=>{if(t&&!B[t.k])t.k='trad'});
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function save(){if(switching)return;try{localStorage.setItem(keyFor(BY.cur),JSON.stringify(S))}catch(e){}}
+/* Byte av by: spara, byt nyckel och ladda om sidan så att allt läses in på nytt */
+function goVillage(id){save();switching=true;BY.cur=id;saveBY();location.reload()}
+
+/* Den riktiga klockan: kväll 20–06, årstid efter månad och väder som byts var sjätte minut.
+   Vädret räknas fram ur klockslaget, så det är samma efter omladdning och behöver inte sparas. */
+const isNight=()=>{const h=new Date().getHours();return h>=20||h<6};
+function season(){const m=new Date().getMonth();return m===11||m<2?'vinter':m<5?'var':m<8?'sommar':'host'}
+const SEASON={vinter:'vinter',var:'vår',sommar:'sommar',host:'höst'};
+function weather(T=now()){
+  let h=Math.imul(Math.floor(T/360000)|0,2654435761)>>>0;h^=h>>>15;h=Math.imul(h,2246822519)>>>0;
+  const r=(h%1000)/1000,s=season();
+  if(s==='vinter')return r<.35?'sno':r<.6?'moln':'sol';
+  const rain={var:.25,sommar:.15,host:.3}[s];
+  return r<rain?'regn':r<rain+.25?'moln':'sol';
+}
+const wxIcon=w=>w==='sol'?(isNight()?'🌙':'☀️'):{moln:'⛅',regn:'🌧️',sno:'🌨️'}[w];
+const wxText=w=>({sol:isNight()?'Det är stjärnklart':'Solen skiner',moln:'Det är molnigt',
+  regn:'Det regnar och åkrarna vattnas av sig själva 💧',sno:'Det snöar'})[w];
+let clockKey='';
+function applyClock(){
+  const w=weather(),s=season(),th=isNight()?'dark':'light',k=w+s+th,root=document.documentElement;
+  if(k===clockKey)return;
+  const was=root.dataset.wx;
+  root.dataset.theme=th;root.dataset.wx=w;root.dataset.season=s;clockKey=k;
+  $('#wx').textContent=wxIcon(w);
+  const fx=$('#wxfx');let html='';
+  const many=(n,fn)=>{for(let i=0;i<n;i++)html+=fn(i)};
+  if(w==='regn')many(50,()=>`<i class="drop" style="left:${Math.random()*100}%;animation-duration:${.55+Math.random()*.4}s;animation-delay:-${Math.random()}s"></i>`);
+  else if(w==='sno')many(36,()=>`<i class="flake" style="left:${Math.random()*100}%;animation-duration:${6+Math.random()*5}s;animation-delay:-${Math.random()*10}s"></i>`);
+  else if(s==='host')many(7,()=>`<i class="leaf" style="left:${Math.random()*100}%;animation-duration:${9+Math.random()*6}s;animation-delay:-${Math.random()*14}s">🍂</i>`);
+  else if(s==='var'&&!isNight())many(6,()=>`<i class="leaf" style="left:${Math.random()*100}%;animation-duration:${10+Math.random()*6}s;animation-delay:-${Math.random()*15}s">🌸</i>`);
+  fx.innerHTML=html;
+  if(was&&was!==w){if(w==='regn')toast('🌧️ Det börjar regna! Regnet vattnar åkrarna.');if(w==='sno')toast('🌨️ Det börjar snöa!')}
+  const m=document.querySelector('meta[name="theme-color"]');if(m)m.content=getComputedStyle(root).getPropertyValue('--sky').trim();
+}
 const N=()=>COLS*S.rows;
 
 /* Föräldraläge. Sparas under en egen nyckel så att ”Börja om” inte stänger av det. */
@@ -389,9 +456,12 @@ function voice(bus,f,t,dur,{type='sine',vol=.2,att=.005,to=0}={}){
   g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+att);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
   o.connect(g);g.connect(bus);o.start(t);o.stop(t+dur+.05);
 }
+function noiseBuffer(){
+  if(!noiseBuf){noiseBuf=ac.createBuffer(1,ac.sampleRate*2,ac.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}
+  return noiseBuf;
+}
 function noise(bus,t,dur,{freq=1000,type='bandpass',vol=.2,q=1}={}){
-  if(!noiseBuf){noiseBuf=ac.createBuffer(1,ac.sampleRate,ac.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}
-  const s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain();s.buffer=noiseBuf;f.type=type;f.frequency.value=freq;f.Q.value=q;
+  const s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain();s.buffer=noiseBuffer();f.type=type;f.frequency.value=freq;f.Q.value=q;
   g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);s.connect(f);f.connect(g);g.connect(bus);s.start(t);s.stop(t+dur+.05);
 }
 const FX={
@@ -412,12 +482,19 @@ const FX={
   unlock:t=>[523,659,784,1047].forEach((f,n)=>voice(fxBus,f,t+n*.09,.4,{type:'triangle',vol:.2}))
 };
 function sfx(k){if(!A.fx||!audio())return;FX[k](ac.currentTime+.01)}
-/* Musiken: C–Am–F–G med en enkel melodi, fåglar på dagen och syrsor på kvällen */
+/* Musiken: C–Am–F–G med en enkel melodi, fåglar på dagen, syrsor på sommarkvällar och regnljud när det regnar */
 const CH=[[48,[60,64,67]],[45,[57,60,64]],[41,[57,60,65]],[43,[55,59,62]]];
 const MEL=[[72,0,76,0,79,0,76,74, 72,0,0,69,72,0,0,0, 69,0,72,0,77,0,76,72, 74,0,0,0,71,0,74,0],
   [79,0,76,0,72,0,74,76, 76,0,72,0,69,0,0,0, 72,0,69,0,65,0,69,72, 71,0,74,0,79,0,0,0]];
 const ORDER=[0,0,1,-1], EIGHTH=60/80/2;
-const night=()=>matchMedia('(prefers-color-scheme: dark)').matches;
+let rainSnd=null;
+function syncRain(){
+  const want=!!musTimer&&weather()==='regn',T=ac.currentTime;
+  if(want&&!rainSnd){const s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain();
+    s.buffer=noiseBuffer();s.loop=true;f.type='lowpass';f.frequency.value=2200;g.gain.value=0;g.gain.setTargetAtTime(.12,T,1);
+    s.connect(f);f.connect(g);g.connect(musBus);s.start();rainSnd={s,g}}
+  if(!want&&rainSnd){rainSnd.g.gain.setTargetAtTime(0,T,.4);rainSnd.s.stop(T+2);rainSnd=null}
+}
 function bird(t){const n=2+rnd(4),b=2200+Math.random()*1200;for(let i=0;i<n;i++)voice(musBus,b,t+i*.13,.09,{vol:.05,to:b*(1.3+Math.random()*.4)})}
 function crickets(t){for(let r=0;r<3;r++)for(let i=0;i<6;i++)voice(musBus,4400,t+r*.5+i*.035,.025,{vol:.025})}
 function musicTick(){
@@ -428,7 +505,9 @@ function musicTick(){
     if(ph>=0){const m=MEL[ph][bar*8+e];if(m&&Math.random()>.12){voice(musBus,hz(m),t,.9,{vol:.16});voice(musBus,hz(m+12),t,.3,{vol:.03})}}
     musStep++;musNext+=EIGHTH;
   }
-  if(ac.currentTime>natureNext){natureNext=ac.currentTime+5+Math.random()*10;(night()?crickets:bird)(ac.currentTime+.1)}
+  if(ac.currentTime>natureNext){natureNext=ac.currentTime+5+Math.random()*10;const w=weather(),s=season();
+    if(w==='sol'||w==='moln'){if(!isNight())bird(ac.currentTime+.1);else if(s!=='vinter')crickets(ac.currentTime+.1)}}
+  syncRain();
 }
 function syncMusic(){
   if(!ac)return;
@@ -436,6 +515,7 @@ function syncMusic(){
   musBus.gain.cancelScheduledValues(T);musBus.gain.setTargetAtTime(on?.35:0,T,on?.8:.15);
   if(on&&!musTimer){musNext=T+.1;musStep=0;natureNext=T+3;musTimer=setInterval(musicTick,100)}
   if(!on&&musTimer){clearInterval(musTimer);musTimer=null}
+  syncRain();
 }
 /* Webbläsare tillåter ljud först efter ett tryck */
 ['pointerdown','keydown'].forEach(ev=>document.addEventListener(ev,()=>{if(audio())syncMusic()},{passive:true}));
@@ -542,13 +622,13 @@ function showLevelUp(){
 
 /* Automatik som körs varje sekund, och ikapp efter att spelet varit stängt */
 function process(){
-  const T=now();
+  const T=now(),wet=weather(T)==='regn';
   S.tiles.forEach((t,i)=>{if(!t)return;const b=B[t.k];
     if(b.t==='field'){
       for(let n=0;n<60&&S.up.skord&&t.job&&t.job.end<=T;n++)harvestTile(i,t.job.end);
       if(!t.job&&t.raw&&S.up.plog)t.raw=false;
       if(!t.job&&!t.raw&&S.up.sa&&t.last&&CROPS[t.last])plantTile(i,t.last,T);
-      if(t.job&&T<t.job.end&&!t.job.w&&covered(i))water(t,T);
+      if(t.job&&T<t.job.end&&!t.job.w&&(wet||covered(i)))water(t,T);
     }
     if(b.t==='animal'&&S.up.djur){const f=food(b);
       for(let n=0;n<60&&t.job&&t.job.end<=T;n++){const at=t.job.end;add(b.out,2);addXP(2);t.job=null;
@@ -766,19 +846,31 @@ function welcomeHTML(){
   <button class="btn wide" data-act="start">Börja spela</button>`;
 }
 function newsHTML(){
-  return `<div class="party"><div class="burst">🎵</div><h2>Nytt i byn!</h2></div>
-  <ol class="steps"><li>Nu finns det musik och ljud i byn. Tryck på 🔊 uppe till höger för att stänga av eller sätta på.</li>
-  <li>På dagen kvittrar fåglarna och på kvällen spelar syrsorna.</li>
-  <li>För vuxna: tryck på byns namnskylt och välj 👪 Föräldraläge för att bestämma hur länge man kan spela.</li></ol>
+  return `<div class="party"><div class="burst">🌦️</div><h2>Nytt i byn!</h2></div>
+  <ol class="steps"><li>Byn följer den riktiga klockan. På kvällen blir det mörkt, och det är vinter, vår, sommar eller höst precis som ute.</li>
+  <li>Det blir sol, moln, regn och snö. När det regnar 🌧️ vattnas åkrarna av sig själva. Tryck på vädret uppe till vänster.</li>
+  <li>Spelet fungerar utan internet, till exempel i bilen.</li>
+  <li>Delar ni telefon? Tryck på byns namnskylt och välj 🏘️ Mina byar. Där kan var och en ha sin egen by.</li>
+  <li>Musik och ljud stänger du av och på med 🔊.</li></ol>
   <button class="btn wide" data-act="close">Toppen!</button>`;
 }
 function renameHTML(c){
   return `<h2>Byns namn</h2><input class="name" id="nameIn" maxlength="20" value="${esc(S.name)}">
   <button class="btn wide" data-act="saveName">Spara namn</button>
+  <p style="margin-top:22px">Delar ni telefon? Varje by sparas för sig.</p>
+  <button class="btn soft" data-act="byar">🏘️ Mina byar (${BY.list.length})</button>
   <p style="margin-top:22px">För vuxna: begränsa speltiden och välj aktiviteter som ger mer tid.</p>
   <button class="btn soft" data-act="parent">👪 Föräldraläge${P.on?' (på)':''}</button>
   <p style="margin-top:22px">Vill du börja om från början? Allt i byn försvinner.</p>
   <button class="btn soft" data-act="reset">${c.sure?'Ja, börja om':'Börja om'}</button>`;
+}
+function byarHTML(c){
+  return `<h2>🏘️ Mina byar</h2><p>Varje by sparas för sig. Bra om syskon delar på en telefon.</p>`+BY.list.map(id=>{
+    const cur=id===BY.cur,v=cur?{name:S.name,level:S.level}:peek(id);
+    return `<div class="row"><span class="big">${cur?'🏡':'🏠'}</span><span class="txt"><b>${esc(v.name)}</b><small>Nivå ${v.level}${cur?' · du är här':''}</small></span>
+    ${cur?'':`<span class="btns" style="flex-direction:row"><button class="btn" data-act="byGo" data-arg="${id}">Byt</button>
+    <button class="btn soft" data-act="byDel" data-arg="${id}" aria-label="Ta bort byn">${c.del===id?'Ta bort?':'✕'}</button></span>`}</div>`}).join('')
+  +(BY.list.length<MAXBYAR?`<button class="btn wide" data-act="byNew">＋ Ny by</button>`:`<p>Du har ${MAXBYAR} byar, och det är max.</p>`);
 }
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 
@@ -790,6 +882,7 @@ document.addEventListener('click',e=>{
   if(!LOUD.has(a.dataset.act))sfx('tap');
   switch(a.dataset.act){
     case 'sound':openSheet(soundHTML);break;
+    case 'wx':{const w=weather();toast(wxIcon(w)+' '+wxText(w)+'. Nu är det '+SEASON[season()]+' i byn.');break}
     case 'sndToggle':A[arg]=!A[arg];saveA();audio();syncMusic();sfx('tap');render();break;
     case 'lockOpen':lockCtx={open:true};renderLock();break;
     case 'lockTry':{const err=tryCode(($('#lockIn').value||'').trim());
@@ -837,7 +930,12 @@ document.addEventListener('click',e=>{
       float(null,'+'+o.coins+' 🪙  +'+o.xp+' ⭐');addXP(o.xp);changed();break}
     case 'swap':S.orders[+arg]=newOrder();changed();break;
     case 'rename':openSheet(renameHTML,{sure:false});break;
-    case 'saveName':case 'start':{const v=($('#nameIn').value||'').trim();if(v)S.name=v;S.seen=true;S.news=3;closeSheet();changed();break}
+    case 'byar':openSheet(byarHTML,{del:null});break;
+    case 'byGo':goVillage(arg);break;
+    case 'byNew':if(BY.list.length<MAXBYAR){const id=T.toString(36);BY.list.push(id);goVillage(id)}break;
+    case 'byDel':if(sheetCtx.del!==arg){sheetCtx.del=arg;render()}
+      else{try{localStorage.removeItem(keyFor(arg))}catch(e){}BY.list=BY.list.filter(x=>x!==arg);saveBY();sheetCtx.del=null;toast('Byn är borttagen');render()}break;
+    case 'saveName':case 'start':{const v=($('#nameIn').value||'').trim();if(v)S.name=v;S.seen=true;S.news=4;closeSheet();changed();break}
     case 'reset':if(!sheetCtx.sure){sheetCtx.sure=true;render()}else{S=fresh();while(S.orders.length<3)S.orders.push(newOrder());S.seen=true;mode=null;closeSheet();changed();toast('En ny by väntar!')}break;
   }
 });
@@ -850,12 +948,15 @@ document.addEventListener('keydown',e=>{
   if(P.on&&P.locked)return;
   if(e.key==='Escape'){if(!$('#sheetWrap').hidden)closeSheet();else{mode=null;render()}}});
 
-process();
-setInterval(()=>{process();tickParent();render()},1000);
+applyClock();process();
+setInterval(()=>{applyClock();process();tickParent();render()},1000);
 setInterval(save,5000);
 render();renderLock();
 if(!S.seen)openSheet(welcomeHTML);
-else if(S.news!==3){S.news=3;save();openSheet(newsHTML)}
+else if(S.news!==4){S.news=4;save();openSheet(newsHTML)}
+/* Offline: service workern sparar spelet i cachen. Be också webbläsaren att inte rensa sparningen. */
+if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
 </script>
 </body>
 </html>
