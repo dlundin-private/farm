@@ -11,6 +11,7 @@ Ett bygg- och odlingsspel i stil med Township, gjort för barn (ungefär 6–13 
 ## Teknik
 - Hela spelet är en enda fil: `index.html` (HTML, CSS och JavaScript). Ingen byggprocess, inga beroenden.
 - Typsnitt: Baloo 2 från Google Fonts med reservtypsnitt. Grafiken är emoji.
+- Hemskärmsikon: `apple-touch-icon.png` (180×180, utan genomskinlighet) renderas från `icon.svg`. Ändra SVG:n och rendera om PNG:n, t.ex. med headless Edge eller Chrome (`--screenshot --window-size=180,180`).
 - Ljust och mörkt läge styrs av CSS-variabler på `:root` ("kvällsby" i mörkt läge).
 - Mobilen är huvudplattformen: tänk på safe-area-insets, stora tryckytor och att spelplanen är 6 kolumner bred.
 

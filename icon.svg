@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180">
+  <!-- Ikon för hemskärmen. Rendera om apple-touch-icon.png om du ändrar här. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8FD3F2"/>
+      <stop offset="1" stop-color="#D4F0FA"/>
+    </linearGradient>
+  </defs>
+  <rect width="180" height="180" fill="url(#sky)"/>
+  <!-- sol -->
+  <circle cx="138" cy="40" r="22" fill="#FFCF3A"/>
+  <circle cx="138" cy="40" r="29" fill="#FFCF3A" opacity=".25"/>
+  <!-- moln -->
+  <g fill="#fff">
+    <ellipse cx="42" cy="38" rx="20" ry="10"/>
+    <ellipse cx="56" cy="32" rx="14" ry="11"/>
+    <ellipse cx="66" cy="40" rx="14" ry="8"/>
+  </g>
+  <!-- kullar -->
+  <path d="M0 104 Q45 76 95 96 T180 90 V180 H0 Z" fill="#5E9A3C"/>
+  <path d="M0 116 Q60 94 120 110 T180 108 V180 H0 Z" fill="#86C25A"/>
+  <!-- ladugård -->
+  <g transform="translate(58 66)">
+    <rect x="4" y="26" width="56" height="44" rx="3" fill="#E0533D"/>
+    <path d="M-2 30 L32 4 L66 30 Z" fill="#B23A28"/>
+    <path d="M-2 30 L32 4 L66 30" fill="none" stroke="#FFF6E0" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+    <rect x="20" y="42" width="24" height="28" fill="#FFF6E0"/>
+    <rect x="23" y="45" width="18" height="25" fill="#8E5A2B"/>
+    <path d="M23 45 L41 70 M41 45 L23 70" stroke="#FFF6E0" stroke-width="3"/>
+    <circle cx="32" cy="24" r="5" fill="#FFF6E0"/>
+  </g>
+  <!-- åker -->
+  <path d="M0 146 Q90 132 180 146 V180 H0 Z" fill="#A8713F"/>
+  <g stroke="#93602F" stroke-width="3" fill="none">
+    <path d="M0 158 Q90 145 180 158"/>
+    <path d="M0 170 Q90 158 180 170"/>
+  </g>
+  <!-- groddar -->
+  <g fill="#3F9B4A">
+    <path d="M28 150 q-8 -10 -12 -4 q6 4 12 4 q2 -12 10 -10 q-4 8 -10 10z"/>
+    <path d="M72 145 q-8 -10 -12 -4 q6 4 12 4 q2 -12 10 -10 q-4 8 -10 10z"/>
+    <path d="M116 145 q-8 -10 -12 -4 q6 4 12 4 q2 -12 10 -10 q-4 8 -10 10z"/>
+    <path d="M158 150 q-8 -10 -12 -4 q6 4 12 4 q2 -12 10 -10 q-4 8 -10 10z"/>
+  </g>
+</svg>
