@@ -1,0 +1,28 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Node
+node_modules/
+dist/
+build/
+.npm/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Secrets och lokala inställningar
+.env
+.env.*
+!.env.example
+*.local.json
+.claude/settings.local.json
