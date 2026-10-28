@@ -340,6 +340,37 @@ function fresh(){
 }
 /* Flera byar. Första byn ligger kvar under KEY (så gamla sparfiler fungerar orörda), nya byar under KEY-id. */
 const BKEY='lilla-byn-byar', MAXBYAR=6;
+/* Flytt från gamla adressen dlundin-private.github.io/farm/. Flyttsidan där (repot flytt) skickar hit sparningen
+   i #flytt=… (base64url av JSON). Byarna läggs till som egna byar, så inget som redan finns här skrivs över. */
+let movedMsg='';
+(function importMove(){
+  const h=location.hash;if(!h.startsWith('#flytt='))return;
+  history.replaceState(null,'',location.pathname+location.search);
+  let d;
+  try{d=JSON.parse(decodeURIComponent(escape(atob(h.slice(7).replace(/-/g,'+').replace(/_/g,'/')))))}
+  catch(e){movedMsg='Flytten gick inte att läsa. Försök igen från flyttsidan.';return}
+  const get=k=>{try{return JSON.parse(localStorage.getItem(k)||'null')}catch(e){return null}};
+  const set=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+  const done=get('lilla-byn-flyttat')||[];
+  if(d.id&&done.includes(d.id)){movedMsg='Byn har redan flyttat hit.';return}
+  const kf=id=>id==='a'?KEY:KEY+'-'+id;
+  let by=get(BKEY);if(!by||!Array.isArray(by.list)||!by.list.length)by={cur:'a',list:['a']};
+  const here=get(KEY),aFree=by.list.includes('a')&&(!here||!here.seen);
+  let first=null,n=0,full=0;
+  (d.byar||[]).filter(s=>s&&s.v===1&&Array.isArray(s.tiles)).forEach((s,ix)=>{
+    let id=null;
+    if(n===0&&aFree)id='a';else if(by.list.length<MAXBYAR)id=(Date.now()+ix).toString(36);
+    if(!id){full++;return}
+    set(kf(id),s);if(!by.list.includes(id))by.list.push(id);first=first||id;n++;
+  });
+  if(first)by.cur=first;
+  set(BKEY,by);
+  if(d.P&&!localStorage.getItem('lilla-byn-foralder'))set('lilla-byn-foralder',d.P);
+  if(d.A&&!localStorage.getItem('lilla-byn-ljud'))set('lilla-byn-ljud',d.A);
+  if(d.id)set('lilla-byn-flyttat',done.concat(d.id));
+  movedMsg=n?(n===1?'Din by har flyttat hit!':n+' byar har flyttat hit!')+(full?` ${full} fick inte plats, du kan ha högst ${MAXBYAR} byar.`:'')
+    :'Det fanns ingen by att flytta.';
+})();
 let BY=null;
 try{BY=JSON.parse(localStorage.getItem(BKEY)||'null')}catch(e){BY=null}
 if(!BY||!Array.isArray(BY.list)||!BY.list.length)BY={cur:'a',list:['a']};
@@ -736,7 +767,9 @@ function tap(i){
     }
     if(t.job){
       if(!t.job.w){const js=area(i,f=>f.k==='falt'&&f.job&&T<f.job.end&&!f.job.w);js.forEach(j=>water(S.tiles[j],T));float(i,'💧'+(js.length>1?' ×'+js.length:''));sfx('water');changed();return}
-      sfx('tap');return toast(em(t.job.item)+' '+nm(t.job.item)+' är klar om '+fmt(t.job.end-T));
+      sfx('tap');
+      if(S.up.sa)return openSheet(seedsHTML,{i,swap:true});
+      return toast(em(t.job.item)+' '+nm(t.job.item)+' är klar om '+fmt(t.job.end-T));
     }
     if(t.raw){
       const js=area(i,f=>f.k==='falt'&&!f.job&&f.raw);
@@ -805,13 +838,18 @@ function shopHTML(c){
   }).join('');
   return `<h2>Bygg</h2>${tabs}${rows}`;
 }
+/* Åkrar som kan sås. Med swap (såmaskinen sår om allt direkt) räknas även det som växer, men inte det som är klart. */
+const sowable=(f,swap,T)=>f.k==='falt'&&!f.raw&&(!f.job||(swap&&T<f.job.end));
 function seedsHTML(c){
-  const free=S.tiles.filter(t=>t&&t.k==='falt'&&!t.job&&!t.raw).length;
-  const inArea=area(c.i,f=>f.k==='falt'&&!f.job&&!f.raw).length;
-  return `<h2>Vad ska vi odla?</h2><p>Varje frö ger 2. Vattna det som växer så går det dubbelt så fort.</p>`+Object.entries(CROPS).map(([k,cr])=>{
-    const lock=cr.lvl>S.level;
+  const T=now(),cur=c.swap&&S.tiles[c.i]&&S.tiles[c.i].job;
+  const free=S.tiles.filter(t=>t&&sowable(t,c.swap,T)).length;
+  const inArea=area(c.i,f=>sowable(f,c.swap,T)).length;
+  const head=cur?`<h2>Byt gröda?</h2><p>${em(cur.item)} ${nm(cur.item)} är klar om ${fmt(cur.end-T)}. Välj en annan gröda, så sår såmaskinen den i stället från och med nu.</p>`
+    :`<h2>Vad ska vi odla?</h2><p>Varje frö ger 2. Vattna det som växer så går det dubbelt så fort.</p>`;
+  return head+Object.entries(CROPS).map(([k,cr])=>{
+    const lock=cr.lvl>S.level,now2=cur&&cur.item===k,verb=c.swap?'Byt':'Så';
     return `<div class="row${lock?' locked':''}"><span class="big">${em(k)}</span><span class="txt"><b>${nm(k)}</b><small>Växer på ${fmt(cr.t*1000)}</small></span>
-    ${lock?`<span class="btn soft">⭐ ${cr.lvl}</span>`:`<span class="btns"><button class="btn" data-act="plant" data-arg="${k}">Så${inArea>1?' '+inArea:''}</button>${free>inArea?`<button class="btn soft" data-act="plantall" data-arg="${k}">Alla ${free}</button>`:''}</span>`}</div>`}).join('');
+    ${lock?`<span class="btn soft">⭐ ${cr.lvl}</span>`:now2?`<span class="done">Växer nu</span>`:`<span class="btns"><button class="btn" data-act="plant" data-arg="${k}">${verb}${inArea>1?' '+inArea:''}</button>${free>inArea?`<button class="btn soft" data-act="plantall" data-arg="${k}">Alla ${free}</button>`:''}</span>`}</div>`}).join('');
 }
 function factoryHTML(c){
   const t=S.tiles[c.i];if(!t)return '';const b=B[t.k],T=now();
@@ -921,8 +959,8 @@ document.addEventListener('click',e=>{
       else{if(S.up[arg]||u.lvl>S.level||S.coins<u.cost)break;S.coins-=u.cost;S.up[arg]=true;sfx('build');toast(u.e+' '+u.n+' är på plats!');process()}
       changed();break}
     case 'remove':{const t=S.tiles[mode.sel],back=Math.floor(B[t.k].cost/2);S.tiles[mode.sel]=null;S.coins+=back;sfx('plow');toast('Borttagen, du fick tillbaka '+back+' 🪙');mode.sel=null;changed();break}
-    case 'plant':{const js=area(sheetCtx.i,f=>f.k==='falt'&&!f.job&&!f.raw);js.forEach(j=>plantTile(j,arg,T));sfx('plant');float(sheetCtx.i,em(arg)+(js.length>1?' ×'+js.length:''));closeSheet();changed();break}
-    case 'plantall':{let n=0;S.tiles.forEach((t,j)=>{if(t&&t.k==='falt'&&!t.job&&!t.raw){plantTile(j,arg,T);n++}});sfx('plant');toast('Sådde '+em(arg)+' på '+n+' åkrar');closeSheet();changed();break}
+    case 'plant':{const js=area(sheetCtx.i,f=>sowable(f,sheetCtx.swap,T));js.forEach(j=>plantTile(j,arg,T));sfx('plant');float(sheetCtx.i,em(arg)+(js.length>1?' ×'+js.length:''));closeSheet();changed();break}
+    case 'plantall':{let n=0;S.tiles.forEach((t,j)=>{if(t&&sowable(t,sheetCtx.swap,T)){plantTile(j,arg,T);n++}});sfx('plant');toast((sheetCtx.swap?'Bytte till ':'Sådde ')+em(arg)+' på '+n+' åkrar');closeSheet();changed();break}
     case 'make':{const t=S.tiles[sheetCtx.i],r=R[arg];if(t.job||!enough(r))break;use(r);t.job={r:arg,start:T,end:T+r.t*1000};t.rep=arg;sfx('make');changed();break}
     case 'collect':collectFactory(sheetCtx.i);break;
     case 'deliver':{const o=S.orders[+arg];if(!canDeliver(o))break;
@@ -952,7 +990,10 @@ applyClock();process();
 setInterval(()=>{applyClock();process();tickParent();render()},1000);
 setInterval(save,5000);
 render();renderLock();
-if(!S.seen)openSheet(welcomeHTML);
+if(movedMsg)openSheet(()=>`<div class="party"><div class="burst">🚚</div><h2>Flytten är klar</h2><p>${esc(movedMsg)}</p>
+  ${BY.list.length>1?`<p>Alla byar finns under 🏘️ Mina byar. Tryck på byns namnskylt för att hitta dit.</p>`:''}
+  <button class="btn wide" data-act="close">Toppen!</button></div>`);
+else if(!S.seen)openSheet(welcomeHTML);
 else if(S.news!==4){S.news=4;save();openSheet(newsHTML)}
 /* Offline: service workern sparar spelet i cachen. Be också webbläsaren att inte rensa sparningen. */
 if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js').catch(()=>{});

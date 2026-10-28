@@ -49,6 +49,7 @@ Ett bygg- och odlingsspel inspirerat av klassiska odlings- och byggspel, gjort f
 ## Domän
 - Spelet ligger på `https://farm.chandler.se` (filen `CNAME`). Gamla adressen `dlundin-private.github.io/farm/` skickas vidare dit.
 - Sparningen hör ihop med domänen. Byt inte domän igen, då börjar alla om från noll.
+- Byar från gamla adressen flyttas med flyttsidan i `../flytt` (`https://dlundin-private.github.io/flytt/`). Den skickar hit `#flytt=…`, som tas emot av `importMove()` innan byarna läses in. Flyttade byar läggs till som nya byar. Föräldraläge och ljud tas bara över om inget finns här.
 
 ## Spelets uppbyggnad (i `<script>`)
 - `I` – alla varor (namn, emoji, värde). `CROPS` – grödor (nivå, växttid). `R` – recept i fabriker.
@@ -57,6 +58,7 @@ Ett bygg- och odlingsspel inspirerat av klassiska odlings- och byggspel, gjort f
 - `process()` körs varje sekund och sköter automatik, även ikapp efter att spelet varit stängt (max 60 cykler per ruta).
 - `tap(i)` hanterar tryck på spelplanen. Ark (bottom sheets) ritas av funktioner som `shopHTML`, `factoryHTML`, `ordersHTML`.
 - Åkrar: plöjd → sådd → (vattnad = halva tiden) → skördad → behöver plöjas igen (om inte traktor finns).
+- Med såmaskin blir en åker aldrig tom. Ett tryck på en vattnad åker som växer öppnar därför `seedsHTML` med `swap:true` (”Byt gröda?”). Det sår om åkrar som växer, men inte de som är klara att skörda (`sowable()`).
 
 ## Publicering
 - GitHub Pages publicerar `main` automatiskt. Pusha till `main` = live efter någon minut.
