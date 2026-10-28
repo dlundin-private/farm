@@ -7,10 +7,10 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <meta name="apple-mobile-web-app-title" content="Lilla Byn">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet">
+<link rel="preload" href="fonts/baloo2.woff2" as="font" type="font/woff2" crossorigin>
 <style>
+/* Typsnittet ligger i fonts/ (SIL OFL, se OFL-Baloo2.txt) så att inget hämtas från Google. */
+@font-face{font-family:"Baloo 2";font-style:normal;font-weight:400 800;font-display:swap;src:url(fonts/baloo2.woff2) format('woff2')}
 :root{
   --sky:#BFE6F7; --grass:#86C25A; --grass-dark:#5E9A3C; --tile:#9BD06C; --tile-hi:#A9DA7B;
   --soil:#A8713F; --soil-line:#93602F; --sun:#FFCF3A; --barn:#E0533D;
@@ -328,7 +328,7 @@ const N=()=>COLS*S.rows;
 const PKEY='lilla-byn-foralder';
 const ACTS=[['las','📚','Läs en bok i 20 minuter'],['studs','🤸','Gå ut och hoppa studsmatta'],['promenad','🚶','Ta en promenad'],
   ['laxor','✏️','Gör läxor i 20 minuter'],['stada','🧹','Städa ditt rum'],['boll','⚽','Spela boll ute'],['rita','🎨','Rita eller måla något'],
-  ['lego','🧩','Bygg med lego eller lägg ett pussel'],['hjalp','🍽️','Hjälp till att duka eller diska'],['musik','🎵','Öva på ditt instrument']];
+  ['lego','🧩','Bygg med byggklossar eller lägg ett pussel'],['hjalp','🍽️','Hjälp till att duka eller diska'],['musik','🎵','Öva på ditt instrument']];
 const MINS=[15,30,45,60,90,120];
 let P=null;
 try{P=JSON.parse(localStorage.getItem(PKEY)||'null')}catch(e){P=null}

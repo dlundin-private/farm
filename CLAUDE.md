@@ -10,7 +10,7 @@ Ett bygg- och odlingsspel inspirerat av klassiska odlings- och byggspel, gjort f
 
 ## Teknik
 - Hela spelet är en enda fil: `index.html` (HTML, CSS och JavaScript). Ingen byggprocess, inga beroenden.
-- Typsnitt: Baloo 2 från Google Fonts med reservtypsnitt. Grafiken är emoji.
+- Typsnitt: Baloo 2 ligger i `fonts/` (SIL OFL, licenstexten bredvid) och laddas via `@font-face`, med reservtypsnitt. Länka inte till Google Fonts, det skickar besökarens IP-adress till Google. Grafiken är emoji.
 - Hemskärmsikon: `apple-touch-icon.png` (180×180, utan genomskinlighet) renderas från `icon.svg`. Ändra SVG:n och rendera om PNG:n, t.ex. med headless Edge eller Chrome (`--screenshot --window-size=180,180`).
 - Ljust och mörkt läge styrs av CSS-variabler på `:root` ("kvällsby" i mörkt läge).
 - Mobilen är huvudplattformen: tänk på safe-area-insets, stora tryckytor och att spelplanen är 6 kolumner bred.
