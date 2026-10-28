@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lilla Byn</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sky:#BFE6F7; --grass:#86C25A; --grass-dark:#5E9A3C; --tile:#9BD06C; --tile-hi:#A9DA7B;
+  --soil:#A8713F; --soil-line:#93602F; --sun:#FFCF3A; --barn:#E0533D;
+  --wood:#C98B4F; --wood-dark:#8E5A2B; --wood-ink:#FFF6E0;
+  --panel:#FFFDF5; --panel-ink:#2F3B24; --card:#F2F0DF; --muted:#6B7556; --edge:#D9D3B6;
+  --leaf:#3F9B4A; --leaf-dark:#2C7436; --bad:#C2412E;
+  color-scheme: light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --sky:#1D2848; --grass:#3E6B3E; --grass-dark:#26472A; --tile:#3D6E43; --tile-hi:#467C4C;
+    --soil:#6E4B2C; --soil-line:#5C3E23; --sun:#FFD860; --barn:#F07259;
+    --wood:#8F5F35; --wood-dark:#5E3B1C; --wood-ink:#FFF1D6;
+    --panel:#28324C; --panel-ink:#F3F0DC; --card:#323E5C; --muted:#B7C0A8; --edge:#151C30;
+    --leaf:#4CB25A; --leaf-dark:#2F7A3A; --bad:#FF8A73;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --sky:#1D2848; --grass:#3E6B3E; --grass-dark:#26472A; --tile:#3D6E43; --tile-hi:#467C4C;
+  --soil:#6E4B2C; --soil-line:#5C3E23; --sun:#FFD860; --barn:#F07259;
+  --wood:#8F5F35; --wood-dark:#5E3B1C; --wood-ink:#FFF1D6;
+  --panel:#28324C; --panel-ink:#F3F0DC; --card:#323E5C; --muted:#B7C0A8; --edge:#151C30;
+  --leaf:#4CB25A; --leaf-dark:#2F7A3A; --bad:#FF8A73;
+  color-scheme: dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;background:var(--sky);scroll-padding-top:env(safe-area-inset-top,0px)}
+body{height:100%;margin:0;background:var(--sky);color:var(--panel-ink);
+  font-family:"Baloo 2","Trebuchet MS","Segoe UI",system-ui,sans-serif;
+  -webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;overflow:hidden}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+
+#app{height:100%;display:flex;flex-direction:column;max-width:560px;margin:0 auto}
+
+/* Skylten med byns namn */
+.top{padding:10px 12px 4px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.sign{border:0;background:var(--wood);color:var(--wood-ink);font-weight:800;font-size:28px;line-height:1.1;
+  padding:6px 22px 4px;border-radius:10px;box-shadow:0 5px 0 var(--wood-dark);transform:rotate(-1.5deg);
+  max-width:92%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.01em}
+.hud{display:flex;gap:8px;width:100%;align-items:center}
+.pill{background:var(--panel);color:var(--panel-ink);border:0;border-radius:999px;padding:3px 12px;font-weight:800;
+  display:flex;align-items:center;gap:6px;box-shadow:0 3px 0 var(--edge);font-size:17px;white-space:nowrap}
+.pill.level{flex:1;min-width:0}
+.xpbar{flex:1;height:10px;border-radius:5px;background:var(--card);overflow:hidden;min-width:40px}
+.xpbar i{display:block;height:100%;width:0;background:var(--sun);border-radius:5px;transition:width .4s}
+
+main{flex:1;overflow:auto;padding:8px 12px 10px;-webkit-overflow-scrolling:touch}
+.board{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;background:var(--grass-dark);padding:6px;border-radius:22px;
+  box-shadow:inset 0 0 0 4px var(--grass)}
+.tile{aspect-ratio:1;border:0;border-radius:12px;background:var(--tile);position:relative;padding:0;
+  font-size:clamp(24px,8vw,38px);display:grid;place-items:center;line-height:1}
+.tile:nth-child(odd){background:var(--tile-hi)}
+.tile.soil{background:var(--soil);background-image:repeating-linear-gradient(0deg,transparent 0 7px,var(--soil-line) 7px 10px)}
+.tile .e{display:block;transition:transform .15s}
+.tile:active .e{transform:scale(.88)}
+.tile.ready .e{animation:bob 1.1s ease-in-out infinite}
+.tile .bar{position:absolute;left:10%;right:10%;bottom:8%;height:6px;border-radius:3px;background:rgba(0,0,0,.28);overflow:hidden}
+.tile .bar i{display:block;height:100%;background:var(--sun)}
+.badge{position:absolute;top:-5px;right:-5px;font-size:.5em;background:var(--panel);border-radius:999px;padding:2px 4px;
+  box-shadow:0 2px 0 var(--edge);line-height:1}
+.ready .badge{animation:bob 1s ease-in-out infinite}
+.placing .tile.empty{box-shadow:inset 0 0 0 3px var(--sun)}
+.tile.sel{box-shadow:inset 0 0 0 4px var(--barn)}
+.editing .tile:not(.empty){opacity:.92}
+
+.banner{margin:0 12px 8px;background:var(--sun);color:#3A2A00;border-radius:14px;padding:6px 8px 6px 14px;
+  display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px;line-height:1.2}
+.banner span{flex:1}
+.banner button{border:0;border-radius:10px;background:#3A2A00;color:#FFF6E0;font-weight:800;padding:4px 12px}
+.banner button.red{background:var(--bad);color:#fff}
+
+.dock{display:flex;gap:8px;padding:6px 12px 10px}
+.dock button{flex:1;border:0;border-radius:16px;background:var(--panel);font-weight:800;font-size:15px;padding:6px 2px 4px;
+  box-shadow:0 4px 0 var(--edge);display:flex;flex-direction:column;align-items:center;line-height:1.15;position:relative}
+.dock button:active{transform:translateY(3px);box-shadow:0 1px 0 var(--edge)}
+.dock .ico{font-size:24px}
+.dot{position:absolute;top:2px;right:8px;min-width:20px;height:20px;border-radius:10px;background:var(--barn);color:#fff;
+  font-size:13px;display:grid;place-items:center;padding:0 5px}
+
+/* Ark som glider upp */
+.scrim{position:fixed;inset:0;background:rgba(10,20,10,.4);z-index:20}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-width:560px;margin:0 auto;background:var(--panel);color:var(--panel-ink);
+  border-radius:26px 26px 0 0;padding:14px 16px calc(18px + env(safe-area-inset-bottom,0px));max-height:80%;overflow:auto;z-index:21;
+  animation:up .22s ease-out}
+.sheet h2{margin:0 0 2px;font-size:26px;line-height:1.15}
+.sheet p{margin:4px 0 12px;color:var(--muted);font-size:16px;line-height:1.35}
+.grab{width:44px;height:5px;border-radius:3px;background:var(--edge);margin:0 auto 10px}
+.x{float:right;border:0;background:var(--card);border-radius:999px;width:36px;height:36px;font-size:18px;font-weight:800}
+.tabs{display:flex;gap:6px;margin:8px 0 10px;overflow-x:auto}
+.tabs button{border:0;border-radius:999px;padding:4px 14px;background:var(--card);font-weight:800;font-size:15px;white-space:nowrap}
+.tabs button.on{background:var(--leaf);color:#fff}
+.row{display:flex;align-items:center;gap:12px;background:var(--card);border-radius:16px;padding:8px 10px;margin-bottom:8px}
+.row .big{font-size:34px;width:44px;text-align:center;flex:none}
+.row .txt{flex:1;min-width:0;line-height:1.2}
+.row .txt b{font-size:18px;display:block}
+.row .txt small{color:var(--muted);font-size:14px}
+.row.locked{opacity:.55}
+.btns{display:flex;flex-direction:column;gap:6px;flex:none}
+.btn{border:0;border-radius:12px;background:var(--leaf);color:#fff;font-weight:800;padding:5px 14px;font-size:16px;
+  box-shadow:0 3px 0 var(--leaf-dark);white-space:nowrap}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--leaf-dark)}
+.btn.soft{background:var(--panel);color:var(--panel-ink);box-shadow:0 3px 0 var(--edge)}
+.btn:disabled{opacity:.4;transform:none}
+.btn.wide{width:100%;padding:10px;font-size:19px}
+.need{display:inline-flex;gap:3px;margin-right:8px;font-weight:700;font-size:15px;color:var(--panel-ink)}
+.need.short{color:var(--bad)}
+.order{background:var(--card);border-radius:18px;padding:10px 12px;margin-bottom:10px}
+.order .items{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+.order .it{background:var(--panel);border-radius:12px;padding:2px 10px;font-weight:800;font-size:17px}
+.order .it.short{color:var(--bad)}
+.order .foot{display:flex;align-items:center;gap:8px}
+.order .reward{flex:1;font-weight:800;font-size:17px}
+.invgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:8px}
+.inv{background:var(--card);border-radius:14px;padding:6px;text-align:center;line-height:1.1}
+.inv .big{font-size:30px}
+.inv b{display:block;font-size:18px}
+.inv small{color:var(--muted);font-size:13px}
+.job{background:var(--card);border-radius:16px;padding:10px 12px;margin-bottom:12px;display:flex;align-items:center;gap:10px}
+.job .big{font-size:34px}
+.job .meter{height:10px;border-radius:5px;background:var(--panel);overflow:hidden;margin-top:4px}
+.job .meter i{display:block;height:100%;background:var(--sun)}
+.steps{margin:0 0 14px;padding-left:22px;font-size:17px;line-height:1.4}
+.steps li{margin-bottom:4px}
+input.name{width:100%;font:inherit;font-size:20px;font-weight:700;border:3px solid var(--edge);border-radius:14px;padding:6px 12px;
+  background:var(--card);color:var(--panel-ink);margin-bottom:12px;user-select:text;-webkit-user-select:text}
+.party{text-align:center}
+.party .burst{font-size:64px;line-height:1;margin:6px 0}
+.party h2{font-size:34px}
+.unl{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:8px 0 16px}
+.unl span{background:var(--card);border-radius:12px;padding:4px 10px;font-weight:700}
+
+.toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 12px);transform:translate(-50%,-140%);background:var(--panel);
+  color:var(--panel-ink);padding:8px 16px;border-radius:14px;font-weight:700;box-shadow:0 4px 0 var(--edge);z-index:40;
+  transition:transform .25s;max-width:90%;text-align:center;line-height:1.25}
+.toast.show{transform:translate(-50%,0)}
+.float{position:fixed;pointer-events:none;font-weight:800;font-size:20px;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.45);
+  transform:translate(-50%,0);animation:floatup 1s ease-out forwards;z-index:30;white-space:nowrap}
+
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes up{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+@keyframes floatup{from{opacity:1;transform:translate(-50%,0)}to{opacity:0;transform:translate(-50%,-48px)}}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+
+.tile.raw{background:var(--soil);background-image:radial-gradient(circle at 25% 30%,var(--soil-line) 0 3px,transparent 4px),radial-gradient(circle at 70% 60%,var(--soil-line) 0 4px,transparent 5px),radial-gradient(circle at 40% 80%,var(--soil-line) 0 2px,transparent 3px)}
+.badge.l{right:auto;left:-5px}
+.done{color:var(--leaf);font-weight:800;white-space:nowrap}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="top">
+    <button class="sign" id="sign" data-act="rename" aria-label="Byt namn på byn"></button>
+    <div class="hud">
+      <div class="pill level" aria-label="Nivå"><span>⭐</span><b id="lvl">1</b><span class="xpbar"><i id="xp"></i></span></div>
+      <div class="pill" aria-label="Mynt">🪙 <b id="coins">0</b></div>
+    </div>
+  </div>
+  <main><div class="board" id="board"></div></main>
+  <div id="banner"></div>
+  <nav class="dock">
+    <button data-act="orders"><span class="ico">📋</span>Order<span class="dot" id="odot" hidden></span></button>
+    <button data-act="shop"><span class="ico">🔨</span>Bygg</button>
+    <button data-act="inv"><span class="ico">📦</span>Lager</button>
+    <button data-act="edit"><span class="ico">✋</span>Flytta</button>
+  </nav>
+</div>
+<div id="sheetWrap" hidden><div class="scrim" data-act="close"></div><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const COLS=6, MAXROWS=14;
+const I={
+  vete:['Vete','🌾',2], majs:['Majs','🌽',3], morot:['Morot','🥕',4], jordgubbe:['Jordgubbe','🍓',6], pumpa:['Pumpa','🎃',8],
+  potatis:['Potatis','🥔',9], solros:['Solros','🌻',10], tomat:['Tomat','🍅',11], druvor:['Druvor','🍇',14],
+  foder:['Foder','🥣',3], agg:['Ägg','🥚',6], mjolk:['Mjölk','🥛',8], ull:['Ull','🧶',10], honung:['Honung','🍯',16], fjader:['Fjäder','🪶',16],
+  brod:['Bröd','🍞',10], smor:['Smör','🧈',11], ost:['Ost','🧀',18], kaka:['Kaka','🍰',28],
+  sylt:['Sylt','🫙',22], soppa:['Soppa','🍲',40], halsduk:['Halsduk','🧣',26],
+  pommes:['Pommes','🍟',30], pizza:['Pizza','🍕',60], godis:['Godis','🍬',45], saft:['Saft','🧃',48],
+  bukett:['Bukett','💐',36], tacke:['Täcke','🛏️',64], glass:['Glass','🍦',55]
+};
+const nm=k=>I[k][0], em=k=>I[k][1], val=k=>I[k][2];
+const CROPS={vete:{lvl:1,t:10}, majs:{lvl:2,t:20}, morot:{lvl:3,t:30}, jordgubbe:{lvl:5,t:45}, pumpa:{lvl:7,t:60},
+  potatis:{lvl:10,t:75}, solros:{lvl:11,t:80}, tomat:{lvl:12,t:90}, druvor:{lvl:15,t:120}};
+const R={
+  foder:{in:{vete:2},out:'foder',q:2,t:10,lvl:2},
+  foder2:{in:{majs:1},out:'foder',q:2,t:10,lvl:2},
+  brod:{in:{vete:3},out:'brod',q:1,t:20,lvl:3},
+  kaka:{in:{vete:2,agg:2,mjolk:1},out:'kaka',q:1,t:40,lvl:5},
+  smor:{in:{mjolk:1},out:'smor',q:1,t:15,lvl:4},
+  ost:{in:{mjolk:2},out:'ost',q:1,t:25,lvl:4},
+  sylt:{in:{jordgubbe:3},out:'sylt',q:1,t:30,lvl:5},
+  soppa:{in:{pumpa:2,morot:2},out:'soppa',q:1,t:45,lvl:7},
+  halsduk:{in:{ull:2},out:'halsduk',q:1,t:40,lvl:6},
+  tacke:{in:{fjader:3,ull:1},out:'tacke',q:1,t:70,lvl:16},
+  pommes:{in:{potatis:3},out:'pommes',q:1,t:40,lvl:10},
+  pizza:{in:{vete:3,tomat:2,ost:1},out:'pizza',q:1,t:60,lvl:12},
+  godis:{in:{honung:1,jordgubbe:2},out:'godis',q:1,t:50,lvl:14},
+  saft:{in:{druvor:3},out:'saft',q:1,t:45,lvl:15},
+  bukett:{in:{solros:3},out:'bukett',q:1,t:30,lvl:16},
+  glass:{in:{mjolk:2,jordgubbe:1,honung:1},out:'glass',q:1,t:55,lvl:17}
+};
+const B={
+  falt:{n:'Åker',e:'🟫',t:'field',cat:'gard',cost:10,lvl:1},
+  spridare:{n:'Vattenspridare',e:'💦',t:'sprinkler',cat:'gard',cost:80,lvl:4,r:1},
+  storspridare:{n:'Stor spridare',e:'🚿',t:'sprinkler',cat:'gard',cost:250,lvl:12,r:2},
+  honshus:{n:'Hönshus',e:'🐔',t:'animal',cat:'gard',cost:50,lvl:2,out:'agg',time:20},
+  ladugard:{n:'Ladugård',e:'🐄',t:'animal',cat:'gard',cost:120,lvl:3,out:'mjolk',time:30},
+  fargard:{n:'Fårhage',e:'🐑',t:'animal',cat:'gard',cost:200,lvl:6,out:'ull',time:40},
+  bikupa:{n:'Bikupa',e:'🐝',t:'animal',cat:'gard',cost:350,lvl:13,out:'honung',time:45,food:'solros'},
+  anddamm:{n:'Anddamm',e:'🦆',t:'animal',cat:'gard',cost:450,lvl:14,out:'fjader',time:50},
+  foderfabrik:{n:'Foderfabrik',e:'🏭',t:'factory',cat:'fabrik',cost:40,lvl:2,rec:['foder','foder2']},
+  bageri:{n:'Bageri',e:'🥖',t:'factory',cat:'fabrik',cost:100,lvl:3,rec:['brod','kaka']},
+  mejeri:{n:'Mejeri',e:'🏪',t:'factory',cat:'fabrik',cost:150,lvl:4,rec:['smor','ost']},
+  kok:{n:'Kök',e:'🍳',t:'factory',cat:'fabrik',cost:180,lvl:5,rec:['sylt','soppa']},
+  atelje:{n:'Syateljé',e:'🧵',t:'factory',cat:'fabrik',cost:220,lvl:6,rec:['halsduk','tacke']},
+  matbil:{n:'Matbil',e:'🚚',t:'factory',cat:'fabrik',cost:400,lvl:10,rec:['pommes']},
+  pizzeria:{n:'Pizzeria',e:'🔥',t:'factory',cat:'fabrik',cost:600,lvl:12,rec:['pizza']},
+  godisfabrik:{n:'Godisfabrik',e:'🏬',t:'factory',cat:'fabrik',cost:700,lvl:14,rec:['godis']},
+  saftstation:{n:'Saftstation',e:'🍹',t:'factory',cat:'fabrik',cost:800,lvl:15,rec:['saft']},
+  blomster:{n:'Blomsterbutik',e:'🌸',t:'factory',cat:'fabrik',cost:500,lvl:16,rec:['bukett']},
+  glasskiosk:{n:'Glasskiosk',e:'🍨',t:'factory',cat:'fabrik',cost:900,lvl:17,rec:['glass']},
+  hus:{n:'Hus',e:'🏠',t:'house',cat:'hus',cost:30,lvl:1,rent:5,every:30},
+  villa:{n:'Villa',e:'🏡',t:'house',cat:'hus',cost:120,lvl:4,rent:15,every:45},
+  slott:{n:'Slott',e:'🏰',t:'house',cat:'hus',cost:600,lvl:9,rent:60,every:90},
+  hoghus:{n:'Höghus',e:'🏢',t:'house',cat:'hus',cost:300,lvl:12,rent:35,every:60},
+  trad:{n:'Lövträd',e:'🌳',t:'deco',cat:'pynt',cost:5,lvl:1,xp:1},
+  gran:{n:'Gran',e:'🌲',t:'deco',cat:'pynt',cost:5,lvl:1,xp:1},
+  blommor:{n:'Blommor',e:'🌷',t:'deco',cat:'pynt',cost:8,lvl:1,xp:1},
+  talt:{n:'Tält',e:'⛺',t:'deco',cat:'pynt',cost:20,lvl:2,xp:2},
+  fontan:{n:'Fontän',e:'⛲',t:'deco',cat:'pynt',cost:40,lvl:3,xp:4},
+  karusell:{n:'Karusell',e:'🎠',t:'deco',cat:'pynt',cost:60,lvl:4,xp:6},
+  snogubbe:{n:'Snögubbe',e:'⛄',t:'deco',cat:'pynt',cost:30,lvl:5,xp:3},
+  cirkus:{n:'Cirkustält',e:'🎪',t:'deco',cat:'pynt',cost:150,lvl:7,xp:15},
+  hjul:{n:'Pariserhjul',e:'🎡',t:'deco',cat:'pynt',cost:300,lvl:8,xp:30},
+  arena:{n:'Arena',e:'🏟️',t:'deco',cat:'pynt',cost:400,lvl:16,xp:40},
+  dalbana:{n:'Berg- och dalbana',e:'🎢',t:'deco',cat:'pynt',cost:500,lvl:17,xp:50},
+  raket:{n:'Raket',e:'🚀',t:'deco',cat:'pynt',cost:700,lvl:18,xp:70},
+  torn:{n:'Utsiktstorn',e:'🗼',t:'deco',cat:'pynt',cost:900,lvl:19,xp:90},
+  pokal:{n:'Mästarpokal',e:'🏆',t:'deco',cat:'pynt',cost:1500,lvl:20,xp:150}
+};
+/* Verktyg och automatik */
+const UP={
+  area:{e:'🧺',tiers:[
+    {n:'Räfsa',d:'Skörda, plöj, vattna och så 3×3 rutor per tryck',lvl:3,cost:150},
+    {n:'Stor räfsa',d:'5×5 rutor per tryck',lvl:6,cost:400},
+    {n:'Jättekorg',d:'Hela gården på ett tryck',lvl:10,cost:900}]},
+  plog:{e:'🚜',n:'Traktor',d:'Plöjer åkern direkt efter skörd',lvl:5,cost:300},
+  hyra:{e:'💼',n:'Hyresvärd',d:'Hämtar hyran från husen åt dig',lvl:7,cost:350},
+  sa:{e:'🌱',n:'Såmaskin',d:'Sår samma gröda igen efter skörd',lvl:8,cost:500},
+  djur:{e:'🧑‍🌾',n:'Djurskötare',d:'Matar djuren och samlar in åt dig',lvl:9,cost:600},
+  skord:{e:'⚙️',n:'Skördetröska',d:'Skördar allt som är klart, helt själv',lvl:11,cost:1200},
+  fabrik:{e:'👷',n:'Fabriksarbetare',d:'Hämtar varor och gör samma sak igen',lvl:13,cost:900},
+  mark:{e:'🗺️',tiers:[
+    {n:'Mer mark',d:'En ny rad med rutor',lvl:4,cost:250},
+    {n:'Mer mark',d:'En ny rad med rutor',lvl:8,cost:500},
+    {n:'Mer mark',d:'En ny rad med rutor',lvl:12,cost:800},
+    {n:'Mer mark',d:'En ny rad med rutor',lvl:16,cost:1200},
+    {n:'Mer mark',d:'En ny rad med rutor',lvl:20,cost:1800}]}
+};
+const CATS={gard:'Gård',fabrik:'Fabriker',hus:'Hus',pynt:'Pynt',verktyg:'Verktyg'};
+const KEY='lilla-byn-v1';
+const need=l=>10+l*10;
+const $=s=>document.querySelector(s);
+const now=()=>Date.now();
+const rnd=n=>Math.floor(Math.random()*n);
+const fmt=ms=>{const s=Math.max(1,Math.ceil(ms/1000));return s<60?s+' s':Math.floor(s/60)+' min'+(s%60?' '+s%60+' s':'')};
+
+function fresh(){
+  const t=Array(COLS*9).fill(null);
+  [19,20,25,26].forEach(i=>t[i]={k:'falt'});
+  t[22]={k:'hus',next:now()+30000};
+  [0,5,11,48,53].forEach(i=>t[i]={k:'trad'});
+  t[42]={k:'blommor'};t[47]={k:'gran'};
+  return {v:1,name:'Min by',coins:50,xp:0,level:1,inv:{vete:2},tiles:t,orders:[],gift:'',seen:false,news:2,rows:9,up:{}};
+}
+let S=null;
+try{S=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){S=null}
+if(!S||S.v!==1)S=fresh();
+S.up=S.up||{};S.rows=S.rows||9;
+while(S.tiles.length<COLS*S.rows)S.tiles.push(null);
+S.tiles.forEach(t=>{if(t&&!B[t.k])t.k='trad'});
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+const N=()=>COLS*S.rows;
+
+let mode=null, sheetFn=null, sheetCtx={};
+const has=k=>S.inv[k]||0;
+const add=(k,q)=>{S.inv[k]=has(k)+q};
+const count=k=>S.tiles.filter(t=>t&&t.k===k).length;
+function cost(k){const b=B[k],c=count(k);if(b.t==='deco')return b.cost;if(b.t==='field')return b.cost+c*5;return Math.round(b.cost*(1+c*.5))}
+const food=b=>b.food||'foder';
+const dist=(a,b)=>Math.max(Math.abs(a%COLS-b%COLS),Math.abs(Math.floor(a/COLS)-Math.floor(b/COLS)));
+const radius=()=>[0,1,2,99][S.up.area||0];
+function covered(i){return S.tiles.some((t,j)=>t&&B[t.k].t==='sprinkler'&&dist(i,j)<=B[t.k].r)}
+function area(i,test){const r=radius(),out=[];S.tiles.forEach((t,j)=>{if(t&&dist(i,j)<=r&&test(t,j))out.push(j)});return out}
+
+/* Åkrar */
+function plantTile(i,k,at){const t=S.tiles[i];let d=CROPS[k].t*1000;const w=covered(i);if(w)d/=2;t.job={item:k,start:at,end:at+d,w};t.last=k}
+function water(t,T){const rem=t.job.end-T;t.job.end=T+rem/2;t.job.w=true}
+function harvestTile(i,at){
+  const t=S.tiles[i],k=t.job.item;add(k,2);t.job=null;t.last=k;addXP(1);
+  if(S.up.plog){t.raw=false;if(S.up.sa)plantTile(i,k,at)}else t.raw=true;
+  return k;
+}
+
+/* Beställningar */
+function available(){
+  const s=new Set();
+  for(const k in CROPS)if(CROPS[k].lvl<=S.level)s.add(k);
+  S.tiles.forEach(t=>{if(!t)return;const b=B[t.k];
+    if(b.t==='animal')s.add(b.out);
+    if(b.t==='factory')b.rec.forEach(r=>{if(R[r].lvl<=S.level&&R[r].out!=='foder')s.add(R[r].out)})});
+  return [...s];
+}
+function newOrder(){
+  const av=available().sort(()=>Math.random()-.5);
+  const n=Math.min(av.length,1+rnd(S.level<3?2:3));
+  const items={};let sum=0;const extra=Math.floor(S.level/5);
+  av.slice(0,n).forEach(k=>{const q=val(k)<=10?2+rnd(4)+extra:1+rnd(S.level>4?3:2);items[k]=q;sum+=val(k)*q});
+  return {items,coins:Math.round(sum*1.4)+5,xp:Math.max(2,Math.round(sum/4))};
+}
+while(S.orders.length<3)S.orders.push(newOrder());
+const canDeliver=o=>Object.entries(o.items).every(([k,q])=>has(k)>=q);
+
+/* Nivåer */
+function unlocks(l){
+  const u=[];
+  for(const k in CROPS)if(CROPS[k].lvl===l)u.push(em(k)+' '+nm(k));
+  for(const k in B)if(B[k].lvl===l)u.push(B[k].e+' '+B[k].n);
+  for(const k in R){const f=Object.keys(B).find(b=>B[b].rec&&B[b].rec.includes(k));if(R[k].lvl===l&&R[k].lvl>B[f].lvl)u.push(em(R[k].out)+' '+nm(R[k].out))}
+  for(const k in UP){const u2=UP[k];if(u2.tiers){u2.tiers.forEach(t=>{if(t.lvl===l)u.push(u2.e+' '+t.n)})}else if(u2.lvl===l)u.push(u2.e+' '+u2.n)}
+  return u;
+}
+let pendingUps=null;
+function addXP(n){
+  S.xp+=n;const ups=[];
+  while(S.xp>=need(S.level)){S.xp-=need(S.level);S.level++;ups.push(S.level)}
+  if(ups.length){const bonus=ups.reduce((a,l)=>a+15*l,0);S.coins+=bonus;
+    pendingUps={bonus:(pendingUps?pendingUps.bonus:0)+bonus,u:(pendingUps?pendingUps.u:[]).concat(ups.flatMap(unlocks))};
+    setTimeout(showLevelUp,350);}
+}
+function showLevelUp(){
+  if(!pendingUps)return;const {bonus,u}=pendingUps;pendingUps=null;
+  openSheet(()=>`<div class="party"><div class="burst">🎉</div><h2>Nivå ${S.level}!</h2>
+    <p>Byn växer. Du får ${bonus} 🪙 i present.</p>
+    ${u.length?`<p>Nytt att upptäcka:</p><div class="unl">${u.map(x=>`<span>${x}</span>`).join('')}</div>`:`<p>Du är en riktig mästarbonde! Fortsätt samla stjärnor för fler presenter.</p>`}
+    <button class="btn wide" data-act="close">Hurra!</button></div>`);
+}
+
+/* Automatik som körs varje sekund, och ikapp efter att spelet varit stängt */
+function process(){
+  const T=now();
+  S.tiles.forEach((t,i)=>{if(!t)return;const b=B[t.k];
+    if(b.t==='field'){
+      for(let n=0;n<60&&S.up.skord&&t.job&&t.job.end<=T;n++)harvestTile(i,t.job.end);
+      if(!t.job&&t.raw&&S.up.plog)t.raw=false;
+      if(!t.job&&!t.raw&&S.up.sa&&t.last&&CROPS[t.last])plantTile(i,t.last,T);
+      if(t.job&&T<t.job.end&&!t.job.w&&covered(i))water(t,T);
+    }
+    if(b.t==='animal'&&S.up.djur){const f=food(b);
+      for(let n=0;n<60&&t.job&&t.job.end<=T;n++){const at=t.job.end;add(b.out,2);addXP(2);t.job=null;
+        if(has(f)>=1){S.inv[f]--;t.job={start:at,end:at+b.time*1000}}}
+      if(!t.job&&has(f)>=1){S.inv[f]--;t.job={start:T,end:T+b.time*1000}}
+    }
+    if(b.t==='factory'&&S.up.fabrik){
+      for(let n=0;n<60&&t.job&&t.job.end<=T;n++){const r=R[t.job.r],at=t.job.end;add(r.out,r.q);addXP(Math.max(2,Math.round(val(r.out)/4)));t.job=null;
+        if(t.rep&&enough(R[t.rep])){use(R[t.rep]);t.job={r:t.rep,start:at,end:at+R[t.rep].t*1000}}}
+      if(!t.job&&t.rep&&enough(R[t.rep])){use(R[t.rep]);t.job={r:t.rep,start:T,end:T+R[t.rep].t*1000}}
+    }
+    if(b.t==='house'&&S.up.hyra&&T>=t.next){const p=Math.min(60,Math.floor((T-t.next)/(b.every*1000))+1);S.coins+=b.rent*p;t.next+=p*b.every*1000;if(t.next<T)t.next=T+b.every*1000}
+  });
+}
+const enough=r=>Object.entries(r.in).every(([k,q])=>has(k)>=q);
+const use=r=>Object.entries(r.in).forEach(([k,q])=>S.inv[k]-=q);
+
+/* Små effekter */
+let toastT;
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200)}
+function float(i,txt){
+  const el=document.createElement('div');el.className='float';el.textContent=txt;
+  let x=innerWidth/2,y=innerHeight/2;
+  if(i!=null&&tiles[i]){const r=tiles[i].getBoundingClientRect();x=r.left+r.width/2;y=r.top}
+  el.style.left=x+'px';el.style.top=y+'px';document.body.appendChild(el);setTimeout(()=>el.remove(),1100);
+}
+
+/* Spelplanen */
+const board=$('#board');let tiles=[],last=[];
+function buildBoard(){board.innerHTML='';tiles=[];last=[];
+  for(let i=0;i<N();i++){const b=document.createElement('button');b.className='tile';b.dataset.i=i;board.appendChild(b);tiles.push(b)}}
+function pct(j){return Math.min(100,Math.max(0,(now()-j.start)/(j.end-j.start)*100))}
+function tileView(i){
+  const t=S.tiles[i],T=now();let cls='tile',e='',badge='',lbadge='',bar='',label='Tom gräsruta';
+  if(!t){cls+=' empty'}
+  else{const b=B[t.k];label=b.n;
+    if(b.t==='field'){
+      if(t.job){cls+=' soil';
+        if(T<t.job.end){e='🌱';bar=pct(t.job);label=nm(t.job.item)+' växer';if(t.job.w)lbadge='💧'}
+        else{e=em(t.job.item);cls+=' ready';label=nm(t.job.item)+' redo att skördas'}}
+      else if(t.raw){cls+=' raw';badge='⛏️';label='Åker som behöver plöjas'}
+      else{cls+=' soil';label='Plöjd åker, redo att så'}}
+    else if(b.t==='animal'){e=b.e;
+      if(!t.job){badge='💤';label=b.n+', hungriga'}else if(T<t.job.end)bar=pct(t.job);else{badge=em(b.out);cls+=' ready';label=b.n+', '+nm(b.out)+' redo'}}
+    else if(b.t==='factory'){e=b.e;if(t.job){if(T<t.job.end)bar=pct(t.job);else{badge=em(R[t.job.r].out);cls+=' ready'}}}
+    else if(b.t==='house'){e=b.e;if(T>=t.next){badge='🪙';cls+=' ready';label=b.n+', hyra redo'}}
+    else e=b.e;
+  }
+  if(mode&&mode.type==='edit'&&mode.sel===i)cls+=' sel';
+  const html=`<span class="e">${e}</span>${bar!==''?`<span class="bar"><i style="width:${bar.toFixed(0)}%"></i></span>`:''}${badge?`<span class="badge">${badge}</span>`:''}${lbadge?`<span class="badge l">${lbadge}</span>`:''}`;
+  return {cls,html,label};
+}
+function render(){
+  if(tiles.length!==N())buildBoard();
+  $('#sign').textContent=S.name;
+  $('#lvl').textContent=S.level;
+  $('#xp').style.width=(S.xp/need(S.level)*100)+'%';
+  $('#coins').textContent=S.coins;
+  const ready=S.orders.filter(canDeliver).length;
+  $('#odot').hidden=!ready;$('#odot').textContent=ready;
+  board.classList.toggle('placing',!!(mode&&mode.type==='place'));
+  board.classList.toggle('editing',!!(mode&&mode.type==='edit'));
+  for(let i=0;i<N();i++){const v=tileView(i),key=v.cls+v.html;
+    if(last[i]!==key){tiles[i].className=v.cls;tiles[i].innerHTML=v.html;tiles[i].setAttribute('aria-label',v.label);last[i]=key}}
+  let ban='';
+  if(mode&&mode.type==='place'){const b=B[mode.k];ban=`<div class="banner"><span>Tryck på en tom ruta för att bygga ${b.e} ${b.n} (${cost(mode.k)} 🪙)</span><button data-act="done">Klar</button></div>`}
+  if(mode&&mode.type==='edit'){
+    if(mode.sel==null)ban=`<div class="banner"><span>Tryck på något du vill flytta</span><button data-act="done">Klar</button></div>`;
+    else{const b=B[S.tiles[mode.sel].k];ban=`<div class="banner"><span>Tryck på en tom ruta för att flytta ${b.e}</span><button class="red" data-act="remove">Ta bort</button><button data-act="done">Klar</button></div>`}}
+  $('#banner').innerHTML=ban;
+  if(sheetFn&&!$('#sheetWrap').hidden){const sh=$('#sheet'),html=sheetHead()+sheetFn(sheetCtx);if(sh._h!==html){sh.innerHTML=html;sh._h=html}}
+}
+function changed(){save();render()}
+
+board.addEventListener('click',e=>{const b=e.target.closest('.tile');if(b)tap(+b.dataset.i)});
+function sumFloat(i,got){const s=Object.entries(got).map(([k,q])=>'+'+q+' '+em(k)).join('  ');if(s)float(i,s)}
+function tap(i){
+  const t=S.tiles[i],T=now();
+  if(mode&&mode.type==='place'){
+    if(t){toast('Välj en tom grön ruta');return}
+    const k=mode.k,c=cost(k),b=B[k];
+    if(S.coins<c){toast('Du behöver fler mynt 🪙');mode=null;render();return}
+    S.coins-=c;S.tiles[i]={k};if(b.t==='house')S.tiles[i].next=T+b.every*1000;
+    float(i,'-'+c+' 🪙');if(b.xp)addXP(b.xp);
+    if(!(b.t==='field'||b.t==='deco'||b.t==='sprinkler')||S.coins<cost(k))mode=null;
+    changed();return;
+  }
+  if(mode&&mode.type==='edit'){
+    if(mode.sel==null){if(t)mode.sel=i}
+    else if(mode.sel===i)mode.sel=null;
+    else if(!t){S.tiles[i]=S.tiles[mode.sel];S.tiles[mode.sel]=null;mode.sel=null;save()}
+    else mode.sel=i;
+    render();return;
+  }
+  if(!t)return;
+  const b=B[t.k];
+  if(b.t==='field'){
+    if(t.job&&T>=t.job.end){
+      const got={};area(i,f=>f.k==='falt'&&f.job&&T>=f.job.end).forEach(j=>{const k=harvestTile(j,T);got[k]=(got[k]||0)+2});
+      sumFloat(i,got);changed();return;
+    }
+    if(t.job){
+      if(!t.job.w){const js=area(i,f=>f.k==='falt'&&f.job&&T<f.job.end&&!f.job.w);js.forEach(j=>water(S.tiles[j],T));float(i,'💧'+(js.length>1?' ×'+js.length:''));changed();return}
+      return toast(em(t.job.item)+' '+nm(t.job.item)+' är klar om '+fmt(t.job.end-T));
+    }
+    if(t.raw){
+      const js=area(i,f=>f.k==='falt'&&!f.job&&f.raw);
+      js.forEach(j=>{const f=S.tiles[j];f.raw=false;if(S.up.sa&&f.last)plantTile(j,f.last,T)});
+      float(i,'⛏️'+(js.length>1?' ×'+js.length:''));changed();return;
+    }
+    return openSheet(seedsHTML,{i});
+  }
+  if(b.t==='sprinkler')return toast(b.e+' '+b.n+' vattnar åkrarna '+(b.r===1?'runt omkring':'i en stor ring'));
+  if(b.t==='animal'){const f=food(b);
+    if(!t.job){
+      if(has(f)<1){toast(f==='foder'?'Djuren är hungriga! Gör 🥣 foder i Foderfabriken.':'Bina vill ha '+em(f)+' '+nm(f).toLowerCase()+'.');return}
+      S.inv[f]--;t.job={start:T,end:T+b.time*1000};float(i,'-1 '+em(f));changed();return;
+    }
+    if(T<t.job.end)return toast(b.n+': klart om '+fmt(t.job.end-T));
+    add(b.out,2);t.job=null;float(i,'+2 '+em(b.out));addXP(2);
+    if(S.up.djur&&has(f)>=1){S.inv[f]--;t.job={start:T,end:T+b.time*1000}}
+    changed();return;
+  }
+  if(b.t==='factory'){
+    if(t.job&&T>=t.job.end){collectFactory(i);return}
+    return openSheet(factoryHTML,{i});
+  }
+  if(b.t==='house'){
+    if(T<t.next)return toast('Hyran kommer om '+fmt(t.next-T));
+    S.coins+=b.rent;t.next=T+b.every*1000;float(i,'+'+b.rent+' 🪙');changed();return;
+  }
+  toast(b.e+' '+b.n);
+}
+function collectFactory(i){
+  const t=S.tiles[i],r=R[t.job.r],T=now();add(r.out,r.q);t.job=null;
+  float(i,'+'+r.q+' '+em(r.out));addXP(Math.max(2,Math.round(val(r.out)/4)));
+  if(S.up.fabrik&&t.rep&&enough(R[t.rep])){use(R[t.rep]);t.job={r:t.rep,start:T,end:T+R[t.rep].t*1000}}
+  changed();
+}
+
+/* Ark */
+function sheetHead(){return `<div class="grab"></div><button class="x" data-act="close" aria-label="Stäng">✕</button>`}
+function openSheet(fn,ctx={}){sheetFn=fn;sheetCtx=ctx;$('#sheetWrap').hidden=false;const sh=$('#sheet');sh._h='';sh.scrollTop=0;render()}
+function closeSheet(){$('#sheetWrap').hidden=true;sheetFn=null}
+
+function upRow(k){
+  const u=UP[k];let n,d,lvl,c,done=false,tier='';
+  if(u.tiers){const lv=k==='mark'?S.rows-9:(S.up[k]||0);if(lv>=u.tiers.length){done=true;n=u.tiers[u.tiers.length-1].n;d=u.tiers[u.tiers.length-1].d}else{({n,d,lvl}=u.tiers[lv]);c=u.tiers[lv].cost;tier=` (${lv+1}/${u.tiers.length})`}}
+  else{n=u.n;d=u.d;lvl=u.lvl;c=u.cost;done=!!S.up[k]}
+  const lock=!done&&lvl>S.level;
+  return `<div class="row${lock?' locked':''}"><span class="big">${u.e}</span><span class="txt"><b>${n}${tier}</b><small>${d}</small></span>
+    ${done?`<span class="done">Klar ✓</span>`:lock?`<span class="btn soft">⭐ ${lvl}</span>`:`<button class="btn" data-act="upgrade" data-arg="${k}" ${S.coins<c?'disabled':''}>🪙 ${c}</button>`}</div>`;
+}
+function shopHTML(c){
+  const cat=c.cat||'gard';
+  const tabs=`<div class="tabs">${Object.entries(CATS).map(([k,n])=>`<button class="${k===cat?'on':''}" data-act="tab" data-arg="${k}">${n}</button>`).join('')}</div>`;
+  if(cat==='verktyg')return `<h2>Bygg</h2>${tabs}<p>Verktyg som gör jobbet åt dig. Köps en gång och fungerar för alltid.</p>`+Object.keys(UP).map(upRow).join('');
+  const rows=Object.entries(B).filter(([k,b])=>b.cat===cat).sort((a,b)=>a[1].lvl-b[1].lvl).map(([k,b])=>{
+    let d='';
+    if(b.t==='field')d='Odla grödor';
+    if(b.t==='sprinkler')d=`Vattnar åkrar ${b.r===1?'runt omkring':'två rutor bort'} så de växer dubbelt så fort`;
+    if(b.t==='animal')d=`Ger ${em(b.out)} ${nm(b.out)}, äter ${em(food(b))} ${nm(food(b)).toLowerCase()}`;
+    if(b.t==='factory')d='Gör '+[...new Set(b.rec.map(r=>em(R[r].out)))].join(' ');
+    if(b.t==='house')d=`Ger ${b.rent} 🪙 i hyra`;
+    if(b.t==='deco')d=`Gör byn finare, +${b.xp} ⭐`;
+    const lock=b.lvl>S.level,c2=cost(k);
+    return `<div class="row${lock?' locked':''}"><span class="big">${b.e}</span><span class="txt"><b>${b.n}</b><small>${d}</small></span>
+      ${lock?`<span class="btn soft">⭐ ${b.lvl}</span>`:`<button class="btn" data-act="buy" data-arg="${k}" ${S.coins<c2?'disabled':''}>🪙 ${c2}</button>`}</div>`;
+  }).join('');
+  return `<h2>Bygg</h2>${tabs}${rows}`;
+}
+function seedsHTML(c){
+  const free=S.tiles.filter(t=>t&&t.k==='falt'&&!t.job&&!t.raw).length;
+  const inArea=area(c.i,f=>f.k==='falt'&&!f.job&&!f.raw).length;
+  return `<h2>Vad ska vi odla?</h2><p>Varje frö ger 2. Vattna det som växer så går det dubbelt så fort.</p>`+Object.entries(CROPS).map(([k,cr])=>{
+    const lock=cr.lvl>S.level;
+    return `<div class="row${lock?' locked':''}"><span class="big">${em(k)}</span><span class="txt"><b>${nm(k)}</b><small>Växer på ${fmt(cr.t*1000)}</small></span>
+    ${lock?`<span class="btn soft">⭐ ${cr.lvl}</span>`:`<span class="btns"><button class="btn" data-act="plant" data-arg="${k}">Så${inArea>1?' '+inArea:''}</button>${free>inArea?`<button class="btn soft" data-act="plantall" data-arg="${k}">Alla ${free}</button>`:''}</span>`}</div>`}).join('');
+}
+function factoryHTML(c){
+  const t=S.tiles[c.i];if(!t)return '';const b=B[t.k],T=now();
+  let job='';
+  if(t.job){const r=R[t.job.r],done=T>=t.job.end;
+    job=`<div class="job"><span class="big">${em(r.out)}</span><span class="txt" style="flex:1"><b>${done?nm(r.out)+' är klar!':'Gör '+nm(r.out).toLowerCase()+'…'}</b>
+    ${done?'':`<small>${fmt(t.job.end-T)} kvar</small><div class="meter"><i style="width:${pct(t.job)}%"></i></div>`}</span>
+    ${done?`<button class="btn" data-act="collect">Hämta</button>`:''}</div>`}
+  const rows=b.rec.map(rk=>{const r=R[rk],lock=r.lvl>S.level;
+    const ins=Object.entries(r.in).map(([k,q])=>`<span class="need${has(k)<q?' short':''}">${em(k)} ${has(k)}/${q}</span>`).join('');
+    return `<div class="row${lock?' locked':''}"><span class="big">${em(r.out)}</span><span class="txt"><b>${r.q>1?r.q+' ':''}${nm(r.out)}${S.up.fabrik&&t.rep===rk?' 🔁':''}</b><small>${ins} ${fmt(r.t*1000)}</small></span>
+    ${lock?`<span class="btn soft">⭐ ${r.lvl}</span>`:`<button class="btn" data-act="make" data-arg="${rk}" ${(!enough(r)||t.job)?'disabled':''}>Gör</button>`}</div>`}).join('');
+  return `<h2>${b.e} ${b.n}</h2><p>${S.up.fabrik?'Fabriksarbetaren gör samma sak igen så länge det finns råvaror.':t.job?'En sak i taget. Hämta den när den är klar.':'Välj vad du vill göra.'}</p>${job}${rows}`;
+}
+function ordersHTML(){
+  return `<h2>Order</h2><p>Grannarna vill ha saker. Leverera för mynt och stjärnor.</p>`+S.orders.map((o,idx)=>{
+    const ok=canDeliver(o);
+    return `<div class="order"><div class="items">${Object.entries(o.items).map(([k,q])=>`<span class="it${has(k)<q?' short':''}">${em(k)} ${Math.min(has(k),q)}/${q}</span>`).join('')}</div>
+    <div class="foot"><span class="reward">🪙 ${o.coins}  ⭐ ${o.xp}</span><button class="btn soft" data-act="swap" data-arg="${idx}">Byt</button><button class="btn" data-act="deliver" data-arg="${idx}" ${ok?'':'disabled'}>Leverera</button></div></div>`}).join('');
+}
+function invHTML(){
+  const items=Object.keys(I).filter(k=>has(k)>0);
+  return `<h2>Lager</h2>`+(items.length?`<p>Det här har du samlat ihop.</p><div class="invgrid">${items.map(k=>`<div class="inv"><div class="big">${em(k)}</div><b>${has(k)}</b><small>${nm(k)}</small></div>`).join('')}</div>`
+    :`<p>Lagret är tomt. Så vete på en åker för att komma igång.</p>`);
+}
+function welcomeHTML(){
+  return `<h2>Välkommen till din by!</h2><p>Här finns inga köp och inga kristaller. Allt tjänar du ihop genom att spela.</p>
+  <ol class="steps"><li>Tryck på en brun åker och så 🌾 vete.</li><li>Tryck på det som växer för att vattna 💧, då går det dubbelt så fort.</li>
+  <li>Skörda när det är klart och plöj ⛏️ åkern igen.</li>
+  <li>Leverera 📋 order till grannarna och få 🪙 mynt och ⭐ stjärnor.</li><li>Bygg djur, fabriker, hus, pynt och verktyg med 🔨.</li></ol>
+  <p>Vad ska byn heta?</p><input class="name" id="nameIn" maxlength="20" value="${S.name==='Min by'?'':esc(S.name)}" placeholder="Min by">
+  <button class="btn wide" data-act="start">Börja spela</button>`;
+}
+function newsHTML(){
+  return `<div class="party"><div class="burst">🚜</div><h2>Nytt i byn!</h2></div>
+  <ol class="steps"><li>Efter skörd behöver åkern plöjas ⛏️ innan du sår igen.</li>
+  <li>Tryck på det som växer för att vattna 💧. Då växer det dubbelt så fort.</li>
+  <li>Bygg 💦 vattenspridare som vattnar åkrarna runt omkring helt själva.</li>
+  <li>Under 🔨 Bygg finns fliken Verktyg: räfsor som skördar många rutor på en gång, traktor, såmaskin, skördetröska, djurskötare och mer mark.</li>
+  <li>Nya grödor, djur, fabriker och pynt ända upp till nivå 20.</li></ol>
+  <button class="btn wide" data-act="close">Toppen!</button>`;
+}
+function renameHTML(c){
+  return `<h2>Byns namn</h2><input class="name" id="nameIn" maxlength="20" value="${esc(S.name)}">
+  <button class="btn wide" data-act="saveName">Spara namn</button>
+  <p style="margin-top:22px">Vill du börja om från början? Allt i byn försvinner.</p>
+  <button class="btn soft" data-act="reset">${c.sure?'Ja, börja om':'Börja om'}</button>`;
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+document.addEventListener('click',e=>{
+  const a=e.target.closest('[data-act]');if(!a)return;
+  const arg=a.dataset.arg,T=now();
+  switch(a.dataset.act){
+    case 'close':closeSheet();if(pendingUps)setTimeout(showLevelUp,200);break;
+    case 'shop':mode=null;openSheet(shopHTML,{cat:'gard'});break;
+    case 'tab':sheetCtx.cat=arg;render();break;
+    case 'inv':openSheet(invHTML);break;
+    case 'orders':openSheet(ordersHTML);break;
+    case 'edit':closeSheet();mode={type:'edit',sel:null};render();break;
+    case 'done':mode=null;render();break;
+    case 'buy':closeSheet();mode={type:'place',k:arg};render();break;
+    case 'upgrade':{const u=UP[arg];let c;
+      if(u.tiers){const lv=arg==='mark'?S.rows-9:(S.up[arg]||0);const tr=u.tiers[lv];if(!tr||tr.lvl>S.level)break;c=tr.cost;if(S.coins<c)break;S.coins-=c;
+        if(arg==='mark'){S.rows++;for(let n=0;n<COLS;n++)S.tiles.push(null);toast('🗺️ Byn fick en ny rad med mark!')}else{S.up[arg]=lv+1;toast(u.e+' '+tr.n+' är din!')}}
+      else{if(S.up[arg]||u.lvl>S.level||S.coins<u.cost)break;S.coins-=u.cost;S.up[arg]=true;toast(u.e+' '+u.n+' är på plats!');process()}
+      changed();break}
+    case 'remove':{const t=S.tiles[mode.sel],back=Math.floor(B[t.k].cost/2);S.tiles[mode.sel]=null;S.coins+=back;toast('Borttagen, du fick tillbaka '+back+' 🪙');mode.sel=null;changed();break}
+    case 'plant':{const js=area(sheetCtx.i,f=>f.k==='falt'&&!f.job&&!f.raw);js.forEach(j=>plantTile(j,arg,T));float(sheetCtx.i,em(arg)+(js.length>1?' ×'+js.length:''));closeSheet();changed();break}
+    case 'plantall':{let n=0;S.tiles.forEach((t,j)=>{if(t&&t.k==='falt'&&!t.job&&!t.raw){plantTile(j,arg,T);n++}});toast('Sådde '+em(arg)+' på '+n+' åkrar');closeSheet();changed();break}
+    case 'make':{const t=S.tiles[sheetCtx.i],r=R[arg];if(t.job||!enough(r))break;use(r);t.job={r:arg,start:T,end:T+r.t*1000};t.rep=arg;changed();break}
+    case 'collect':collectFactory(sheetCtx.i);break;
+    case 'deliver':{const o=S.orders[+arg];if(!canDeliver(o))break;
+      Object.entries(o.items).forEach(([k,q])=>S.inv[k]-=q);S.coins+=o.coins;S.orders[+arg]=newOrder();
+      float(null,'+'+o.coins+' 🪙  +'+o.xp+' ⭐');addXP(o.xp);changed();break}
+    case 'swap':S.orders[+arg]=newOrder();changed();break;
+    case 'rename':openSheet(renameHTML,{sure:false});break;
+    case 'saveName':case 'start':{const v=($('#nameIn').value||'').trim();if(v)S.name=v;S.seen=true;S.news=2;closeSheet();changed();break}
+    case 'reset':if(!sheetCtx.sure){sheetCtx.sure=true;render()}else{S=fresh();while(S.orders.length<3)S.orders.push(newOrder());S.seen=true;mode=null;closeSheet();changed();toast('En ny by väntar!')}break;
+  }
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#sheetWrap').hidden)closeSheet();else{mode=null;render()}}});
+
+process();
+setInterval(()=>{process();render()},1000);
+setInterval(save,5000);
+render();
+if(!S.seen)openSheet(welcomeHTML);
+else if(S.news!==2){S.news=2;save();openSheet(newsHTML)}
+</script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+# Lilla Byn
+
+Ett bygg- och odlingsspel i stil med Township, gjort för barn (ungefär 6–13 år). All text i spelet är på svenska.
+
+## Grundprinciper (får inte brytas)
+- Inga köp, ingen premiumvaluta, inga reklamer och inga väntetider man kan betala sig förbi. Allt tjänas genom att spela.
+- Inga "dagens gåva"-mekaniker eller andra belöningar som lockar till att öppna spelet. De har tagits bort med flit.
+- Korta väntetider (sekunder till ett par minuter) och tydlig, vänlig återkoppling. Inget som straffar barnet.
+- Texter ska vara enkla att läsa för ett barn. Använd typografiska citattecken ” ” och apostrof ’ i synlig text.
+
+## Teknik
+- Hela spelet är en enda fil: `index.html` (HTML, CSS och JavaScript). Ingen byggprocess, inga beroenden.
+- Typsnitt: Baloo 2 från Google Fonts med reservtypsnitt. Grafiken är emoji.
+- Ljust och mörkt läge styrs av CSS-variabler på `:root` ("kvällsby" i mörkt läge).
+- Mobilen är huvudplattformen: tänk på safe-area-insets, stora tryckytor och att spelplanen är 6 kolumner bred.
+
+## Spara-data (viktigt)
+- Spelet sparas i `localStorage` under nyckeln `lilla-byn-v1`. Byt ALDRIG nyckeln, då försvinner barnens byar.
+- Nya fält i state måste få standardvärden vid inläsning (se migreringen direkt efter `JSON.parse`), så att gamla sparfiler fungerar.
+- `S.news` styr "Nytt i byn"-arket. Höj värdet och skriv om `newsHTML()` när en större uppdatering släpps.
+
+## Spelets uppbyggnad (i `<script>`)
+- `I` – alla varor (namn, emoji, värde). `CROPS` – grödor (nivå, växttid). `R` – recept i fabriker.
+- `B` – allt som kan byggas: field, sprinkler, animal, factory, house, deco. `cat` styr flik i byggmenyn.
+- `UP` – verktyg/automatik (räfsor för större yta, traktor, såmaskin, skördetröska, djurskötare, fabriksarbetare, hyresvärd, mer mark).
+- `process()` körs varje sekund och sköter automatik, även ikapp efter att spelet varit stängt (max 60 cykler per ruta).
+- `tap(i)` hanterar tryck på spelplanen. Ark (bottom sheets) ritas av funktioner som `shopHTML`, `factoryHTML`, `ordersHTML`.
+- Åkrar: plöjd → sådd → (vattnad = halva tiden) → skördad → behöver plöjas igen (om inte traktor finns).
+
+## Publicering
+- GitHub Pages publicerar `main` automatiskt. Pusha till `main` = live efter någon minut.
+- Testa större ändringar på en egen gren först om det är osäkert.
+
+## Innan du pushar
+- Kontrollera att skriptet har giltig syntax (t.ex. extrahera `<script>`-innehållet och kör `node --check`).
+- Spela igenom det du ändrat i huvudet: fungerar en gammal sparfil? Kan något ge oändligt med mynt (som den borttagna gåvan gjorde)?
