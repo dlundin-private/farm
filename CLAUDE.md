@@ -44,7 +44,11 @@ Ett bygg- och odlingsspel inspirerat av klassiska odlings- och byggspel, gjort f
 ## Offline
 - `sw.js` hämtar sidan från nätet först (med cachen som reserv efter 4 s) så att nya versioner kommer fram, och övriga filer från cachen.
 - Lägger du till, tar bort eller byter en fil som spelet behöver: uppdatera `FILES` och höj `VERSION` i `sw.js`.
-- Adressen delas med andra spel på `dlundin-private.github.io`. Rör bara cachar som börjar på `lilla-byn-`.
+- Rör bara cachar som börjar på `lilla-byn-`, ifall spelet någon gång delar adress med något annat.
+
+## Domän
+- Spelet ligger på `https://farm.chandler.se` (filen `CNAME`). Gamla adressen `dlundin-private.github.io/farm/` skickas vidare dit.
+- Sparningen hör ihop med domänen. Byt inte domän igen, då börjar alla om från noll.
 
 ## Spelets uppbyggnad (i `<script>`)
 - `I` – alla varor (namn, emoji, värde). `CROPS` – grödor (nivå, växttid). `R` – recept i fabriker.
